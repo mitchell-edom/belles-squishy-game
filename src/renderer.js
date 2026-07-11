@@ -497,7 +497,7 @@ export class CustomRenderer {
   }
 
   // PREMIUM VOLUMETRIC 3D SHADED TOY ART
-  drawSquishyToy(ctx, typeId, radius) {
+  drawSquishyToy(ctx, typeId, radius, rotationAngle = 0, skin = 'normal') {
     ctx.save();
     
     // Scale drawings so they look correct based on requested size (standard radius is 14px)
@@ -507,12 +507,15 @@ export class CustomRenderer {
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1.6;
 
+    // Y-rotation projection depth offsets
+    const faceDx = Math.sin(rotationAngle) * 7.5;
+    const faceScaleX = Math.cos(rotationAngle);
+
     // Helper: Draw isometric 3D Cubes (Nice Cubes)
     const drawIsometricCube = (cx, cy, size, colTop, colFront, colSide) => {
       const h = size / 2;
       const wRad = size * 0.86;
 
-      // Top face
       ctx.fillStyle = colTop;
       ctx.beginPath();
       ctx.moveTo(cx, cy - size);
@@ -523,7 +526,6 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Front Face
       ctx.fillStyle = colFront;
       ctx.beginPath();
       ctx.moveTo(cx - wRad, cy - h);
@@ -534,7 +536,6 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Right Face
       ctx.fillStyle = colSide;
       ctx.beginPath();
       ctx.moveTo(cx, cy);
@@ -559,11 +560,81 @@ export class CustomRenderer {
       ctx.stroke();
     };
 
+    // Helper: Real-time 3D projected rotating cube (painter's algorithm)
+    const drawRotatedCube = (cx, cy, size, colTop, colFront, colSide, angle) => {
+      const vertices = [
+        {x: -1, y: -1, z: -1},
+        {x: 1, y: -1, z: -1},
+        {x: 1, y: 1, z: -1},
+        {x: -1, y: 1, z: -1},
+        {x: -1, y: -1, z: 1},
+        {x: 1, y: -1, z: 1},
+        {x: 1, y: 1, z: 1},
+        {x: -1, y: 1, z: 1}
+      ];
+      const pitch = 0.48; // Y-tilt angle
+      const rotated = vertices.map(v => {
+        let x1 = v.x * Math.cos(angle) - v.z * Math.sin(angle);
+        let z1 = v.x * Math.sin(angle) + v.z * Math.cos(angle);
+        let y2 = v.y * Math.cos(pitch) - z1 * Math.sin(pitch);
+        let z2 = v.y * Math.sin(pitch) + z1 * Math.cos(pitch);
+        return {x: x1 * size, y: y2 * size, z: z2};
+      });
+      const projected = rotated.map(r => {
+        return {x: cx + r.x * 0.9, y: cy + r.y * 0.9, z: r.z};
+      });
+      const faces = [
+        {indices: [0, 1, 2, 3], color: colTop, name: 'top'},
+        {indices: [4, 5, 6, 7], color: colTop, name: 'bottom'},
+        {indices: [0, 1, 5, 4], color: colFront, name: 'front'},
+        {indices: [2, 3, 7, 6], color: colFront, name: 'back'},
+        {indices: [1, 2, 6, 5], color: colSide, name: 'right'},
+        {indices: [0, 3, 7, 4], color: colSide, name: 'left'}
+      ];
+      faces.forEach(f => {
+        f.avgZ = f.indices.reduce((sum, idx) => sum + rotated[idx].z, 0) / 4;
+      });
+      faces.sort((a, b) => b.avgZ - a.avgZ);
+      
+      faces.forEach(f => {
+        ctx.fillStyle = f.color;
+        ctx.beginPath();
+        ctx.moveTo(projected[f.indices[0]].x, projected[f.indices[0]].y);
+        for(let i = 1; i < 4; i++) {
+          ctx.lineTo(projected[f.indices[i]].x, projected[f.indices[i]].y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      });
+    };
+
     // 0. NICE CUBE NEEDOH (Translucent Glassmorphic 3D Blue Cube)
     if (typeId === 0) {
-      drawIsometricCube(0, -3, 13, 'rgba(125, 211, 252, 0.9)', 'rgba(56, 189, 248, 0.9)', 'rgba(2, 132, 199, 0.9)');
+      let colTop = 'rgba(125, 211, 252, 0.9)';
+      let colFront = 'rgba(56, 189, 248, 0.9)';
+      let colSide = 'rgba(2, 132, 199, 0.9)';
       
-      // Glossy highlight shine
+      if (skin === 'glitter') {
+        colTop = 'rgba(251, 207, 232, 0.95)';
+        colFront = 'rgba(244, 114, 182, 0.95)';
+        colSide = 'rgba(219, 39, 119, 0.95)';
+      } else if (skin === 'metallic') {
+        colTop = 'rgba(248, 250, 252, 0.95)';
+        colFront = 'rgba(226, 232, 240, 0.95)';
+        colSide = 'rgba(148, 163, 184, 0.95)';
+      } else if (skin === 'galaxy') {
+        colTop = 'rgba(168, 85, 247, 0.95)';
+        colFront = 'rgba(99, 102, 241, 0.95)';
+        colSide = 'rgba(49, 46, 129, 0.95)';
+      }
+
+      if (rotationAngle !== 0) {
+        drawRotatedCube(0, -3, 13, colTop, colFront, colSide, rotationAngle);
+      } else {
+        drawIsometricCube(0, -3, 13, colTop, colFront, colSide);
+      }
+      
       ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.beginPath();
       ctx.moveTo(-8, -12);
@@ -574,30 +645,43 @@ export class CustomRenderer {
     }
     // 1. WENDY FROG SQUISH (Volumetric Green Mochi Spherical Animal)
     else if (typeId === 1) {
-      // Shaded Eyes bulging
-      ctx.fillStyle = '#22c55e';
+      let color1 = '#4ade80';
+      let color2 = '#15803d';
+      let eyeColor = '#22c55e';
+      
+      if (skin === 'glitter') {
+        color1 = '#fbcfe8'; color2 = '#db2777'; eyeColor = '#faa2c1';
+      } else if (skin === 'metallic') {
+        color1 = '#f8fafc'; color2 = '#64748b'; eyeColor = '#cbd5e1';
+      } else if (skin === 'galaxy') {
+        color1 = '#c084fc'; color2 = '#312e81'; eyeColor = '#818cf8';
+      }
+
+      // 3D projected bulging eyes
+      const eyeLX = -7 * faceScaleX + faceDx;
+      const eyeRX = 7 * faceScaleX + faceDx;
+
+      ctx.fillStyle = eyeColor;
       ctx.beginPath();
-      ctx.arc(-7, -13, 5, 0, Math.PI*2);
-      ctx.arc(7, -13, 5, 0, Math.PI*2);
+      ctx.arc(eyeLX, -13, 5, 0, Math.PI*2);
+      ctx.arc(eyeRX, -13, 5, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
 
       ctx.fillStyle = '#0f172a';
       ctx.beginPath();
-      ctx.arc(-7, -13, 1.8, 0, Math.PI*2);
-      ctx.arc(7, -13, 1.8, 0, Math.PI*2);
+      ctx.arc(eyeLX, -13, 1.8, 0, Math.PI*2);
+      ctx.arc(eyeRX, -13, 1.8, 0, Math.PI*2);
       ctx.fill();
 
-      // Specular eye spot
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(-8, -14, 0.8, 0, Math.PI*2);
-      ctx.arc(6, -14, 0.8, 0, Math.PI*2);
+      ctx.arc(eyeLX - 0.8, -13.8, 0.8, 0, Math.PI*2);
+      ctx.arc(eyeRX - 0.8, -13.8, 0.8, 0, Math.PI*2);
       ctx.fill();
 
-      // Shaded egg body
       const frogGrad = ctx.createRadialGradient(-3, -3, 2, 0, 1, 15);
-      frogGrad.addColorStop(0, '#4ade80');
-      frogGrad.addColorStop(1, '#15803d');
+      frogGrad.addColorStop(0, color1);
+      frogGrad.addColorStop(1, color2);
       ctx.fillStyle = frogGrad;
 
       ctx.beginPath();
@@ -605,41 +689,59 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Belly
-      ctx.fillStyle = '#f0fdf4';
-      ctx.beginPath();
-      ctx.ellipse(0, 6, 8, 6.5, 0, 0, Math.PI*2);
-      ctx.fill();
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
 
-      // Smile
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(0, -1, 3.2, 0.2, Math.PI - 0.2);
-      ctx.stroke();
+        ctx.fillStyle = '#f0fdf4';
+        ctx.beginPath();
+        ctx.ellipse(0, 6, 8, 6.5, 0, 0, Math.PI*2);
+        ctx.fill();
 
-      // Pink blush
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
-      ctx.beginPath();
-      ctx.arc(-8, 1, 2, 0, Math.PI*2);
-      ctx.arc(8, 1, 2, 0, Math.PI*2);
-      ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(0, -1, 3.2, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+        ctx.beginPath();
+        ctx.arc(-8, 1, 2, 0, Math.PI*2);
+        ctx.arc(8, 1, 2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
     }
     // 2. CAM CAT SQUISH (Cream Shaded Cat Mochi)
     else if (typeId === 2) {
-      // Ears
-      ctx.fillStyle = '#ca8a04';
+      let color1 = '#fef3c7';
+      let color2 = '#d97706';
+      let earColor = '#ca8a04';
+      
+      if (skin === 'glitter') {
+        color1 = '#fce7f3'; color2 = '#c2185b'; earColor = '#f472b6';
+      } else if (skin === 'metallic') {
+        color1 = '#f1f5f9'; color2 = '#475569'; earColor = '#cbd5e1';
+      } else if (skin === 'galaxy') {
+        color1 = '#e0e7ff'; color2 = '#3730a3'; earColor = '#6366f1';
+      }
+
+      const earLX = -10 * faceScaleX + faceDx;
+      const earRX = 10 * faceScaleX + faceDx;
+
+      ctx.fillStyle = earColor;
       ctx.beginPath();
-      ctx.moveTo(-10, -8); ctx.lineTo(-14, -20); ctx.lineTo(-3, -12); ctx.closePath();
+      ctx.moveTo(earLX, -8); ctx.lineTo(earLX - 4, -20); ctx.lineTo(earLX + 7, -12); ctx.closePath();
       ctx.fill(); ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(10, -8); ctx.lineTo(14, -20); ctx.lineTo(3, -12); ctx.closePath();
+      ctx.moveTo(earRX, -8); ctx.lineTo(earRX + 4, -20); ctx.lineTo(earRX - 7, -12); ctx.closePath();
       ctx.fill(); ctx.stroke();
 
-      // 3D Shaded body
       const catGrad = ctx.createRadialGradient(-3, -3, 2, 0, 1, 15);
-      catGrad.addColorStop(0, '#fef3c7');
-      catGrad.addColorStop(1, '#d97706');
+      catGrad.addColorStop(0, color1);
+      catGrad.addColorStop(1, color2);
       ctx.fillStyle = catGrad;
 
       ctx.beginPath();
@@ -647,37 +749,54 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Cat Stripes
-      ctx.fillStyle = '#b45309';
-      ctx.fillRect(-3, -14, 6, 3);
-      ctx.fillRect(-8, -13, 3, 2);
-      ctx.fillRect(5, -13, 3, 2);
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
 
-      // Face
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-5, -2, 1.6, 0, Math.PI*2);
-      ctx.arc(5, -2, 1.6, 0, Math.PI*2);
-      ctx.fill();
-      
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      ctx.arc(-1, 1, 1, 0, Math.PI);
-      ctx.arc(1, 1, 1, 0, Math.PI);
-      ctx.stroke();
+        ctx.fillStyle = '#b45309';
+        ctx.fillRect(-3, -14, 6, 3);
+        ctx.fillRect(-8, -13, 3, 2);
+        ctx.fillRect(5, -13, 3, 2);
 
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
-      ctx.beginPath();
-      ctx.arc(-8, 1, 2, 0, Math.PI*2);
-      ctx.arc(8, 1, 2, 0, Math.PI*2);
-      ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-5, -2, 1.6, 0, Math.PI*2);
+        ctx.arc(5, -2, 1.6, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.arc(-1, 1, 1, 0, Math.PI);
+        ctx.arc(1, 1, 1, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+        ctx.beginPath();
+        ctx.arc(-8, 1, 2, 0, Math.PI*2);
+        ctx.arc(8, 1, 2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
     }
     // 3. NEEDOH GUMDROP (Pink Volumetric Gumdrop)
     else if (typeId === 3) {
+      let color1 = '#f472b6';
+      let color2 = '#be185d';
+      
+      if (skin === 'glitter') {
+        color1 = '#faa2c1'; color2 = '#c2255c';
+      } else if (skin === 'metallic') {
+        color1 = '#f1f5f9'; color2 = '#64748b';
+      } else if (skin === 'galaxy') {
+        color1 = '#c084fc'; color2 = '#1e1b4b';
+      }
+
       const gdGrad = ctx.createRadialGradient(0, -6, 2, 0, 1, 15);
-      gdGrad.addColorStop(0, '#f472b6'); 
-      gdGrad.addColorStop(1, '#be185d');
+      gdGrad.addColorStop(0, color1); 
+      gdGrad.addColorStop(1, color2);
       ctx.fillStyle = gdGrad;
       
       ctx.beginPath();
@@ -690,48 +809,69 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Highlight cap
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.beginPath();
-      ctx.ellipse(0, -9, 4, 2, 0, 0, Math.PI*2);
-      ctx.fill();
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
 
-      // Smiley face
-      ctx.strokeStyle = '#4c0519';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(-4, -1, 1.5, Math.PI, 0);
-      ctx.arc(4, -1, 1.5, Math.PI, 0);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 2.5, 2, 0, Math.PI);
-      ctx.stroke();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(0, -9, 4, 2, 0, 0, Math.PI*2);
+        ctx.fill();
 
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
-      ctx.beginPath();
-      ctx.arc(-8, 1, 2, 0, Math.PI*2);
-      ctx.arc(8, 1, 2, 0, Math.PI*2);
-      ctx.fill();
+        ctx.strokeStyle = '#4c0519';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(-4, -1, 1.5, Math.PI, 0);
+        ctx.arc(4, -1, 1.5, Math.PI, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 2.5, 2, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+        ctx.beginPath();
+        ctx.arc(-8, 1, 2, 0, Math.PI*2);
+        ctx.arc(8, 1, 2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
     }
     // 4. CONNOR COW SQUISH (Cow Volumetric egg)
     else if (typeId === 4) {
-      // Ears & Horns
-      ctx.fillStyle = '#334155';
+      let color1 = '#ffffff';
+      let color2 = '#94a3b8';
+      let spotColor = '#334155';
+      
+      if (skin === 'glitter') {
+        color1 = '#fdf2f8'; color2 = '#f472b6'; spotColor = '#db2777';
+      } else if (skin === 'metallic') {
+        color1 = '#f8fafc'; color2 = '#cbd5e1'; spotColor = '#475569';
+      } else if (skin === 'galaxy') {
+        color1 = '#f5f3ff'; color2 = '#a855f7'; spotColor = '#312e81';
+      }
+
+      const earLX = -14 * faceScaleX + faceDx;
+      const earRX = 14 * faceScaleX + faceDx;
+      const hornLX = -7 * faceScaleX + faceDx;
+      const hornRX = 7 * faceScaleX + faceDx;
+
+      ctx.fillStyle = spotColor;
       ctx.beginPath();
-      ctx.ellipse(-14, -6, 5, 3, -0.4, 0, Math.PI*2);
-      ctx.ellipse(14, -6, 5, 3, 0.4, 0, Math.PI*2);
+      ctx.ellipse(earLX, -6, 5, 3, -0.4, 0, Math.PI*2);
+      ctx.ellipse(earRX, -6, 5, 3, 0.4, 0, Math.PI*2);
       ctx.fill(); ctx.stroke();
 
       ctx.fillStyle = '#fef08a';
       ctx.beginPath();
-      ctx.moveTo(-7, -13); ctx.quadraticCurveTo(-11, -20, -11, -15); ctx.lineTo(-4, -13);
-      ctx.moveTo(7, -13); ctx.quadraticCurveTo(11, -20, 11, -15); ctx.lineTo(4, -13);
+      ctx.moveTo(hornLX, -13); ctx.quadraticCurveTo(hornLX - 4, -20, hornLX - 4, -15); ctx.lineTo(hornLX + 3, -13);
+      ctx.moveTo(hornRX, -13); ctx.quadraticCurveTo(hornRX + 4, -20, hornRX + 4, -15); ctx.lineTo(hornRX - 3, -13);
       ctx.fill(); ctx.stroke();
 
-      // Volumetric Body
       const cowGrad = ctx.createRadialGradient(-3, -3, 2, 0, 1, 15);
-      cowGrad.addColorStop(0, '#ffffff');
-      cowGrad.addColorStop(1, '#94a3b8');
+      cowGrad.addColorStop(0, color1);
+      cowGrad.addColorStop(1, color2);
       ctx.fillStyle = cowGrad;
 
       ctx.beginPath();
@@ -739,41 +879,46 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Spot patches
-      ctx.fillStyle = '#334155';
-      ctx.beginPath();
-      ctx.arc(-7, -9, 4, 0, Math.PI*2);
-      ctx.ellipse(8, 2, 5, 7, 0.4, 0, Math.PI*2);
-      ctx.fill();
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
 
-      // 3D snout
-      const snoutGrad = ctx.createLinearGradient(0, 0, 0, 8);
-      snoutGrad.addColorStop(0, '#ffe4e6');
-      snoutGrad.addColorStop(1, '#fda4af');
-      ctx.fillStyle = snoutGrad;
-      ctx.beginPath();
-      ctx.ellipse(0, 4, 8, 5, 0, 0, Math.PI*2);
-      ctx.fill();
-      ctx.stroke();
+        ctx.fillStyle = spotColor;
+        ctx.beginPath();
+        ctx.arc(-7, -9, 4, 0, Math.PI*2);
+        ctx.ellipse(8, 2, 5, 7, 0.4, 0, Math.PI*2);
+        ctx.fill();
 
-      ctx.fillStyle = '#475569';
-      ctx.beginPath();
-      ctx.arc(-2.5, 4, 0.8, 0, Math.PI*2);
-      ctx.arc(2.5, 4, 0.8, 0, Math.PI*2);
-      ctx.fill();
+        const snoutGrad = ctx.createLinearGradient(0, 0, 0, 8);
+        snoutGrad.addColorStop(0, '#ffe4e6');
+        snoutGrad.addColorStop(1, '#fda4af');
+        ctx.fillStyle = snoutGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 4, 8, 5, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
 
-      // Eyes
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-5, -2, 1.6, 0, Math.PI*2);
-      ctx.arc(5, -2, 1.6, 0, Math.PI*2);
-      ctx.fill();
+        ctx.fillStyle = '#475569';
+        ctx.beginPath();
+        ctx.arc(-2.5, 4, 0.8, 0, Math.PI*2);
+        ctx.arc(2.5, 4, 0.8, 0, Math.PI*2);
+        ctx.fill();
 
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
-      ctx.beginPath();
-      ctx.arc(-8, 1, 2, 0, Math.PI*2);
-      ctx.arc(8, 1, 2, 0, Math.PI*2);
-      ctx.fill();
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-5, -2, 1.6, 0, Math.PI*2);
+        ctx.arc(5, -2, 1.6, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+        ctx.beginPath();
+        ctx.arc(-8, 1, 2, 0, Math.PI*2);
+        ctx.arc(8, 1, 2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
     }
     // 5. TEENIE NEEDOHS (Three Volumetric neon spheres)
     else if (typeId === 5) {
@@ -788,21 +933,48 @@ export class CustomRenderer {
         ctx.fill();
         ctx.stroke();
         
-        // Specular dot
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(cx - 2, cy - 2, 1.2, 0, Math.PI*2);
         ctx.fill();
       };
-      drawShadedBall(-5, 5, '#ff7043', '#d84315'); // Orange
-      drawShadedBall(5, 5, '#a7f3d0', '#047857');  // Green
-      drawShadedBall(0, -4, '#f472b6', '#be185d'); // Pink
+
+      if (skin === 'glitter') {
+        drawShadedBall(-5 + faceDx, 5, '#fda4af', '#f43f5e');
+        drawShadedBall(5 + faceDx, 5, '#fbcfe8', '#db2777');
+        drawShadedBall(0 + faceDx, -4, '#fce7f3', '#c2185b');
+      } else if (skin === 'metallic') {
+        drawShadedBall(-5 + faceDx, 5, '#f1f5f9', '#94a3b8');
+        drawShadedBall(5 + faceDx, 5, '#e2e8f0', '#64748b');
+        drawShadedBall(0 + faceDx, -4, '#cbd5e1', '#475569');
+      } else if (skin === 'galaxy') {
+        drawShadedBall(-5 + faceDx, 5, '#c084fc', '#4c1d95');
+        drawShadedBall(5 + faceDx, 5, '#a5b4fc', '#312e81');
+        drawShadedBall(0 + faceDx, -4, '#ddd6fe', '#5b21b6');
+      } else {
+        drawShadedBall(-5 + faceDx, 5, '#ff7043', '#d84315');
+        drawShadedBall(5 + faceDx, 5, '#a7f3d0', '#047857');
+        drawShadedBall(0 + faceDx, -4, '#f472b6', '#be185d');
+      }
     }
     // 6. SHAGGY NEEDOH (Yellow Shaded Core with strands)
     else if (typeId === 6) {
+      let color1 = '#fef08a';
+      let color2 = '#d97706';
+      let strandColor = '#eab308';
+      let tipColor = '#facc15';
+
+      if (skin === 'glitter') {
+        color1 = '#fbcfe8'; color2 = '#db2777'; strandColor = '#f472b6'; tipColor = '#fda4af';
+      } else if (skin === 'metallic') {
+        color1 = '#f8fafc'; color2 = '#64748b'; strandColor = '#cbd5e1'; tipColor = '#e2e8f0';
+      } else if (skin === 'galaxy') {
+        color1 = '#c084fc'; color2 = '#312e81'; strandColor = '#818cf8'; tipColor = '#a5b4fc';
+      }
+
       const shGrad = ctx.createRadialGradient(-2, -2, 2, 0, 0, 11);
-      shGrad.addColorStop(0, '#fef08a');
-      shGrad.addColorStop(1, '#d97706');
+      shGrad.addColorStop(0, color1);
+      shGrad.addColorStop(1, color2);
       ctx.fillStyle = shGrad;
       
       ctx.beginPath();
@@ -810,51 +982,70 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Shaggy rubber strands
-      ctx.strokeStyle = '#eab308';
+      ctx.strokeStyle = strandColor;
       ctx.lineWidth = 1.8;
       for (let a = 0; a < Math.PI*2; a += 0.28) {
-        const startX = Math.cos(a) * 11;
-        const startY = Math.sin(a) * 11;
-        const endX = Math.cos(a) * 15.5;
-        const endY = Math.sin(a) * 15.5;
+        const curAngle = a + rotationAngle;
+        const startX = Math.cos(curAngle) * 11;
+        const startY = Math.sin(curAngle) * 11;
+        const endX = Math.cos(curAngle) * 15.5;
+        const endY = Math.sin(curAngle) * 15.5;
         ctx.beginPath();
         ctx.moveTo(startX, startY);
         ctx.lineTo(endX, endY);
         ctx.stroke();
 
-        // Shag tip bead
-        ctx.fillStyle = '#facc15';
+        ctx.fillStyle = tipColor;
         ctx.beginPath();
         ctx.arc(endX, endY, 1.1, 0, Math.PI*2);
         ctx.fill();
       }
 
-      // Face
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 1.3;
-      ctx.beginPath();
-      ctx.arc(-3, -2, 1.2, Math.PI, 0);
-      ctx.arc(3, -2, 1.2, Math.PI, 0);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 1.5, 2.2, 0, Math.PI);
-      ctx.stroke();
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
+
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.arc(-3, -2, 1.2, Math.PI, 0);
+        ctx.arc(3, -2, 1.2, Math.PI, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 1.5, 2.2, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.restore();
+      }
     }
     // 7. ARCHIE AXOLOTL SQUISH (Volumetric Pink Axolotl)
     else if (typeId === 7) {
-      // Frilly red gills
-      ctx.fillStyle = '#f43f5e';
-      for (let i = 0; i < 3; i++) {
-        const offset = i * 6 - 6;
-        ctx.beginPath(); ctx.ellipse(-15, offset, 7, 3, -0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.beginPath(); ctx.ellipse(15, offset, 7, 3, 0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      let color1 = '#fecdd3';
+      let color2 = '#db2777';
+      let gillColor = '#f43f5e';
+
+      if (skin === 'glitter') {
+        color1 = '#fdf2f8'; color2 = '#be185d'; gillColor = '#ec4899';
+      } else if (skin === 'metallic') {
+        color1 = '#f1f5f9'; color2 = '#475569'; gillColor = '#cbd5e1';
+      } else if (skin === 'galaxy') {
+        color1 = '#c084fc'; color2 = '#312e81'; gillColor = '#6366f1';
       }
 
-      // Shaded egg body
+      const gillLX = -15 * faceScaleX + faceDx;
+      const gillRX = 15 * faceScaleX + faceDx;
+
+      ctx.fillStyle = gillColor;
+      for (let i = 0; i < 3; i++) {
+        const offset = i * 6 - 6;
+        ctx.beginPath(); ctx.ellipse(gillLX, offset, 7, 3, -0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(gillRX, offset, 7, 3, 0.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      }
+
       const axGrad = ctx.createRadialGradient(-3, -3, 2, 0, 1, 15);
-      axGrad.addColorStop(0, '#fecdd3');
-      axGrad.addColorStop(1, '#db2777');
+      axGrad.addColorStop(0, color1);
+      axGrad.addColorStop(1, color2);
       ctx.fillStyle = axGrad;
 
       ctx.beginPath();
@@ -862,31 +1053,59 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Face
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(-6, -2, 2.2, 0, Math.PI*2);
-      ctx.arc(6, -2, 2.2, 0, Math.PI*2);
-      ctx.fill();
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
 
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      ctx.arc(-0.8, 2, 1, 0, Math.PI);
-      ctx.arc(0.8, 2, 1, 0, Math.PI);
-      ctx.stroke();
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-6, -2, 2.2, 0, Math.PI*2);
+        ctx.arc(6, -2, 2.2, 0, Math.PI*2);
+        ctx.fill();
 
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.45)';
-      ctx.beginPath();
-      ctx.arc(-8, 1, 2.2, 0, Math.PI*2);
-      ctx.arc(8, 1, 2.2, 0, Math.PI*2);
-      ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.arc(-0.8, 2, 1, 0, Math.PI);
+        ctx.arc(0.8, 2, 1, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.45)';
+        ctx.beginPath();
+        ctx.arc(-8, 1, 2.2, 0, Math.PI*2);
+        ctx.arc(8, 1, 2.2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
     }
     // 8. GOLDEN NICE CUBE (Holographic Chrome Gold Cube)
     else if (typeId === 8) {
-      drawIsometricCube(0, -3, 13, '#fde047', '#eab308', '#ca8a04');
-      
-      // Shiny reflections
+      let colTop = '#fde047';
+      let colFront = '#eab308';
+      let colSide = '#ca8a04';
+
+      if (skin === 'glitter') {
+        colTop = '#fbcfe8';
+        colFront = '#f472b6';
+        colSide = '#be185d';
+      } else if (skin === 'metallic') {
+        colTop = '#ffffff';
+        colFront = '#e2e8f0';
+        colSide = '#94a3b8';
+      } else if (skin === 'galaxy') {
+        colTop = '#c084fc';
+        colFront = '#818cf8';
+        colSide = '#4f46e5';
+      }
+
+      if (rotationAngle !== 0) {
+        drawRotatedCube(0, -3, 13, colTop, colFront, colSide, rotationAngle);
+      } else {
+        drawIsometricCube(0, -3, 13, colTop, colFront, colSide);
+      }
+
       ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
       ctx.beginPath();
       ctx.moveTo(-8, -12);
@@ -895,7 +1114,6 @@ export class CustomRenderer {
       ctx.closePath();
       ctx.fill();
 
-      // 4-point sparkle cross stars
       const drawSparkleCross = (sx, sy) => {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.4;
@@ -933,107 +1151,121 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
-      // Fold lines
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
-      ctx.lineWidth = 1.0;
-      ctx.beginPath();
-      ctx.moveTo(cx - 3, cy - 7);
-      ctx.quadraticCurveTo(cx - 4, cy, cx - 7, cy + 7);
-      ctx.moveTo(cx, cy - 8);
-      ctx.quadraticCurveTo(cx, cy, cx, cy + 8);
-      ctx.moveTo(cx + 3, cy - 7);
-      ctx.quadraticCurveTo(cx + 4, cy, cx + 7, cy + 7);
-      ctx.stroke();
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
 
-      // Face
-      ctx.fillStyle = '#0f172a';
-      ctx.beginPath();
-      ctx.arc(cx - 4, cy + 3, 1.5, 0, Math.PI*2);
-      ctx.arc(cx + 4, cy + 3, 1.5, 0, Math.PI*2);
-      ctx.fill();
+        // Fold lines
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(cx - 3, cy - 7);
+        ctx.quadraticCurveTo(cx - 4, cy, cx - 7, cy + 7);
+        ctx.moveTo(cx, cy - 8);
+        ctx.quadraticCurveTo(cx, cy, cx, cy + 8);
+        ctx.moveTo(cx + 3, cy - 7);
+        ctx.quadraticCurveTo(cx + 4, cy, cx + 7, cy + 7);
+        ctx.stroke();
 
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 1.0;
-      ctx.beginPath();
-      ctx.arc(cx, cy + 4, 1.8, 0, Math.PI);
-      ctx.stroke();
+        // Face
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(cx - 4, cy + 3, 1.5, 0, Math.PI*2);
+        ctx.arc(cx + 4, cy + 3, 1.5, 0, Math.PI*2);
+        ctx.fill();
 
-      ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
-      ctx.beginPath();
-      ctx.arc(cx - 7, cy + 5, 1.5, 0, Math.PI*2);
-      ctx.arc(cx + 7, cy + 5, 1.5, 0, Math.PI*2);
-      ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.arc(cx, cy + 4, 1.8, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+        ctx.beginPath();
+        ctx.arc(cx - 7, cy + 5, 1.5, 0, Math.PI*2);
+        ctx.arc(cx + 7, cy + 5, 1.5, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
     };
 
-    // 9. RED DUMPLING SQUISHY
-    if (typeId === 9) {
-      drawDumplingShape(0, -2, '#faa2a2', '#e03131');
-    }
-    // 10. ORANGE DUMPLING SQUISHY
-    else if (typeId === 10) {
-      drawDumplingShape(0, -2, '#ffd8a8', '#f76707');
-    }
-    // 11. YELLOW DUMPLING SQUISHY
-    else if (typeId === 11) {
-      drawDumplingShape(0, -2, '#ffec99', '#f59f00');
-    }
-    // 12. GREEN DUMPLING SQUISHY
-    else if (typeId === 12) {
-      drawDumplingShape(0, -2, '#b2f2bb', '#2b8a3e');
-    }
-    // 13. BLUE DUMPLING SQUISHY
-    else if (typeId === 13) {
-      drawDumplingShape(0, -2, '#a5d8ff', '#1c7ed6');
-    }
-    // 14. PURPLE DUMPLING SQUISHY
-    else if (typeId === 14) {
-      drawDumplingShape(0, -2, '#eebefa', '#ae3ec9');
-    }
-    // 15. PINK DUMPLING SQUISHY
-    else if (typeId === 15) {
-      drawDumplingShape(0, -2, '#ffdeeb', '#f783ac');
-    }
-    // 16. UV LIGHT DUMPLING
-    else if (typeId === 16) {
-      ctx.shadowBlur = 6;
-      ctx.shadowColor = '#d946ef';
-      drawDumplingShape(0, -2, '#f5f3ff', '#6366f1');
-      
-      ctx.fillStyle = '#d946ef';
-      ctx.beginPath();
-      ctx.arc(-8, -4, 1.2, 0, Math.PI*2);
-      ctx.arc(8, -4, 1.2, 0, Math.PI*2);
-      ctx.fill();
-    }
-    // 17. RAINBOW DUMPLING
-    else if (typeId === 17) {
-      const rbGrad = ctx.createLinearGradient(-13, -10, 13, 10);
-      rbGrad.addColorStop(0, '#ff6b6b');
-      rbGrad.addColorStop(0.2, '#fcc419');
-      rbGrad.addColorStop(0.4, '#51cf66');
-      rbGrad.addColorStop(0.6, '#339af0');
-      rbGrad.addColorStop(0.8, '#cc5de8');
-      rbGrad.addColorStop(1.0, '#ff8787');
-      drawDumplingShape(0, -2, rbGrad, rbGrad);
-    }
-    // 18. GOLDEN DUMPLING
-    else if (typeId === 18) {
-      const goldGrad = ctx.createLinearGradient(-13, -10, 13, 10);
-      goldGrad.addColorStop(0, '#fff3bf');
-      goldGrad.addColorStop(0.5, '#f59f00');
-      goldGrad.addColorStop(1, '#fcc419');
-      drawDumplingShape(0, -2, goldGrad, goldGrad);
+    // 9..18 Dumpling Skin Mapping
+    let dCol1 = null;
+    let dCol2 = null;
+    let isRainbow = false;
+    let isGold = false;
 
-      const drawSparkleCross = (sx, sy) => {
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1.4;
+    if (typeId === 9) { dCol1 = '#faa2a2'; dCol2 = '#e03131'; }
+    else if (typeId === 10) { dCol1 = '#ffd8a8'; dCol2 = '#f76707'; }
+    else if (typeId === 11) { dCol1 = '#ffec99'; dCol2 = '#f59f00'; }
+    else if (typeId === 12) { dCol1 = '#b2f2bb'; dCol2 = '#2b8a3e'; }
+    else if (typeId === 13) { dCol1 = '#a5d8ff'; dCol2 = '#1c7ed6'; }
+    else if (typeId === 14) { dCol1 = '#eebefa'; dCol2 = '#ae3ec9'; }
+    else if (typeId === 15) { dCol1 = '#ffdeeb'; dCol2 = '#f783ac'; }
+    else if (typeId === 16) { dCol1 = '#f5f3ff'; dCol2 = '#6366f1'; }
+    else if (typeId === 17) { isRainbow = true; }
+    else if (typeId === 18) { isGold = true; }
+
+    if (skin === 'glitter') {
+      dCol1 = '#faa2c1'; dCol2 = '#c2255c'; isRainbow = false; isGold = false;
+    } else if (skin === 'metallic') {
+      dCol1 = '#f1f5f9'; dCol2 = '#64748b'; isRainbow = false; isGold = false;
+    } else if (skin === 'galaxy') {
+      dCol1 = '#c084fc'; dCol2 = '#312e81'; isRainbow = false; isGold = false;
+    }
+
+    if (typeId >= 9 && typeId <= 18) {
+      if (typeId === 16 && skin === 'normal') {
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#d946ef';
+      }
+      
+      let fillGrad = null;
+      if (isRainbow) {
+        const rbGrad = ctx.createLinearGradient(-13, -10, 13, 10);
+        rbGrad.addColorStop(0, '#ff6b6b');
+        rbGrad.addColorStop(0.2, '#fcc419');
+        rbGrad.addColorStop(0.4, '#51cf66');
+        rbGrad.addColorStop(0.6, '#339af0');
+        rbGrad.addColorStop(0.8, '#cc5de8');
+        rbGrad.addColorStop(1.0, '#ff8787');
+        fillGrad = rbGrad;
+      } else if (isGold) {
+        const goldGrad = ctx.createLinearGradient(-13, -10, 13, 10);
+        goldGrad.addColorStop(0, '#fff3bf');
+        goldGrad.addColorStop(0.5, '#f59f00');
+        goldGrad.addColorStop(1, '#fcc419');
+        fillGrad = goldGrad;
+      } else {
+        fillGrad = ctx.createRadialGradient(-3, -3, 2, 0, 0, 14);
+        fillGrad.addColorStop(0, dCol1);
+        fillGrad.addColorStop(1, dCol2);
+      }
+
+      drawDumplingShape(0, -2, fillGrad, fillGrad);
+
+      if (typeId === 16 && skin === 'normal') {
+        ctx.fillStyle = '#d946ef';
         ctx.beginPath();
-        ctx.moveTo(sx - 3.5, sy); ctx.lineTo(sx + 3.5, sy);
-        ctx.moveTo(sx, sy - 3.5); ctx.lineTo(sx, sy + 3.5);
-        ctx.stroke();
-      };
-      drawSparkleCross(8, -8);
-      drawSparkleCross(-7, 8);
+        ctx.arc(-8, -4, 1.2, 0, Math.PI*2);
+        ctx.arc(8, -4, 1.2, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      if (isGold) {
+        const drawSparkleCross = (sx, sy) => {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(sx - 3.5, sy); ctx.lineTo(sx + 3.5, sy);
+          ctx.moveTo(sx, sy - 3.5); ctx.lineTo(sx, sy + 3.5);
+          ctx.stroke();
+        };
+        drawSparkleCross(8, -8);
+        drawSparkleCross(-7, 8);
+      }
     }
 
     ctx.restore();
@@ -1090,7 +1322,7 @@ export class CustomRenderer {
       }
 
       // Draw the 3D Shaded Toy
-      this.drawSquishyToy(this.ctx, typeId, 14);
+      this.drawSquishyToy(this.ctx, typeId, 14, 0, skin);
 
       // Render skin accents on top
       if (skin === 'glitter') {
@@ -1177,7 +1409,7 @@ export class CustomRenderer {
         this.ctx.fill();
       }
 
-      this.drawSquishyToy(this.ctx, p.toyType, 10);
+      this.drawSquishyToy(this.ctx, p.toyType, 10, p.rotation || 0, p.toySkin || 'normal');
 
       // Accent overlays
       if (skin === 'glitter') {

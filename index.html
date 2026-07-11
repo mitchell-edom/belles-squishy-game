@@ -432,6 +432,43 @@
       </div>
     </div>
 
+    <!-- 3D Squishy Detail Viewer Modal -->
+    <div id="squishy-viewer-modal" class="modal-overlay">
+      <div class="viewer-card">
+        <button id="btn-close-viewer" class="close-btn">&times;</button>
+        <div class="viewer-layout">
+          <!-- Left Panel: 3D Render -->
+          <div class="viewer-render-panel">
+            <div class="viewer-canvas-container">
+              <canvas id="viewer-canvas" width="260" height="260"></canvas>
+            </div>
+            <div class="viewer-hint">Drag mouse or move cursor to tilt in 3D!</div>
+          </div>
+          <!-- Right Panel: Info & Skins -->
+          <div class="viewer-info-panel">
+            <div id="viewer-rarity" class="card-rarity common">COMMON</div>
+            <h2 id="viewer-name">Nice Cube NeeDoh</h2>
+            <p id="viewer-description">A super squishy transparent cube filled with shaving cream-like NeeDoh compound!</p>
+            
+            <div class="viewer-stats-row">
+              <div><strong>Base Points:</strong> <span id="viewer-val-points">150</span></div>
+              <div><strong>Active Multiplier:</strong> <span id="viewer-val-mult">1.0x</span></div>
+            </div>
+
+            <div class="viewer-skins-section">
+              <h3>INSPECT SKINS</h3>
+              <div class="viewer-skins-grid">
+                <button id="badge-view-normal" class="viewer-skin-badge normal active" data-skin="normal">Normal</button>
+                <button id="badge-view-glitter" class="viewer-skin-badge glitter locked" data-skin="glitter">Glitter</button>
+                <button id="badge-view-metallic" class="viewer-skin-badge metallic locked" data-skin="metallic">Metallic</button>
+                <button id="badge-view-galaxy" class="viewer-skin-badge galaxy locked" data-skin="galaxy">Galaxy</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Floating Help Modal -->
     <div id="help-modal" class="modal-overlay">
       <div class="modal-card">

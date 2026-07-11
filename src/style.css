@@ -878,6 +878,183 @@ kbd {
   box-shadow: 0 0 6px rgba(168, 85, 247, 0.5);
 }
 
+/* 3D Squishy Detail Viewer */
+.viewer-card {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.65), 0 0 25px rgba(168, 85, 247, 0.15);
+  border-radius: 20px;
+  width: 90%;
+  max-width: 600px;
+  padding: 24px;
+  position: relative;
+  animation: modalScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: #fff;
+}
+
+.viewer-layout {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.viewer-render-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.viewer-canvas-container {
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, rgba(0, 0, 0, 0.5) 75%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 260px;
+  height: 260px;
+}
+
+#viewer-canvas {
+  width: 260px;
+  height: 260px;
+  cursor: grab;
+}
+
+#viewer-canvas:active {
+  cursor: grabbing;
+}
+
+.viewer-hint {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  letter-spacing: 0.5px;
+}
+
+.viewer-info-panel {
+  flex: 1.1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.viewer-info-panel h2 {
+  font-family: var(--font-hud);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.viewer-info-panel p {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.viewer-stats-row {
+  display: flex;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.72rem;
+}
+
+.viewer-skins-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.viewer-skins-section h3 {
+  font-family: var(--font-hud);
+  font-size: 0.65rem;
+  letter-spacing: 1.2px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.viewer-skins-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.viewer-skin-badge {
+  font-family: var(--font-hud);
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.viewer-skin-badge:hover:not(.locked) {
+  transform: translateY(-1.5px);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.viewer-skin-badge.active {
+  border-color: #fff !important;
+}
+
+.viewer-skin-badge.locked {
+  opacity: 0.28;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+.viewer-skin-badge.normal.active {
+  background: var(--neon-green);
+  border-color: var(--neon-green);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.viewer-skin-badge.glitter.active {
+  background: #f472b6;
+  border-color: #f472b6;
+  box-shadow: 0 0 10px rgba(244, 114, 182, 0.4);
+}
+
+.viewer-skin-badge.metallic.active {
+  background: #e2e8f0;
+  color: #0f172a;
+  border-color: #cbd5e1;
+  box-shadow: 0 0 10px rgba(203, 213, 225, 0.4);
+}
+
+.viewer-skin-badge.galaxy.active {
+  background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);
+  border-color: #a855f7;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
+@media (max-width: 580px) {
+  .viewer-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .viewer-render-panel, .viewer-info-panel {
+    width: 100%;
+  }
+}
+
 @media (max-width: 480px) {
   .collection-grid {
     grid-template-columns: repeat(2, 1fr);

@@ -35,10 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-toggle-help')?.addEventListener('click', () => openModal('help-modal'));
   document.getElementById('btn-close-help')?.addEventListener('click', () => closeModal('help-modal'));
 
+  document.getElementById('btn-close-viewer')?.addEventListener('click', () => {
+    closeModal('squishy-viewer-modal');
+    game.viewerActive = false;
+  });
+
   // Close modals on clicking outside the card
   window.addEventListener('click', (e) => {
     if (e.target.classList.contains('modal-overlay')) {
       closeModal(e.target.id);
+      if (e.target.id === 'squishy-viewer-modal') {
+        game.viewerActive = false;
+      }
     }
   });
 

@@ -39,6 +39,14 @@ export class GymnasticsGame {
     this.accumulator = 0;
     this.fixedDelta = 1000 / 60; // 16.666 ms
 
+    // 3D Squishy Viewer state
+    this.viewerActive = false;
+    this.viewerTypeId = 0;
+    this.activeViewerSkin = 'normal';
+    this.viewerRotation = 0;
+    this.viewerTiltX = 0;
+    this.viewerTiltY = 0;
+
     // Store customization choices
     this.currentCustomization = {
       skinColor: '#ffdbac',
@@ -828,6 +836,16 @@ export class GymnasticsGame {
         card.classList.remove('locked');
       }
 
+      if (totalCollected > 0) {
+        card.style.cursor = 'pointer';
+        card.onclick = () => {
+          this.openSquishyViewer(i);
+        };
+      } else {
+        card.style.cursor = 'default';
+        card.onclick = null;
+      }
+
       // Unlock individual skin badges
       const normalBadge = card.querySelector('.skin-badge.normal');
       const glitterBadge = card.querySelector('.skin-badge.glitter');
@@ -896,5 +914,247 @@ export class GymnasticsGame {
     const container = this.canvas.parentElement;
     this.canvas.width = container.clientWidth;
     this.canvas.height = container.clientHeight;
+  }
+
+  openSquishyViewer(typeId) {
+    this.viewerTypeId = typeId;
+    this.viewerActive = true;
+    this.viewerRotation = 0;
+    this.viewerTiltX = 0;
+    this.viewerTiltY = 0;
+
+    const names = [
+      'Nice Cube NeeDoh', 
+      'Wendy Frog Squish', 
+      'Cam Cat Squish', 
+      'NeeDoh Gumdrop', 
+      'Connor Cow Squish', 
+      'Teenie NeeDohs', 
+      'Shaggy NeeDoh', 
+      'Archie Axolotl Squish', 
+      'Golden Nice Cube',
+      'Red Dumpling Squishy',
+      'Orange Dumpling Squishy',
+      'Yellow Dumpling Squishy',
+      'Green Dumpling Squishy',
+      'Blue Dumpling Squishy',
+      'Purple Dumpling Squishy',
+      'Pink Dumpling Squishy',
+      'UV Light Dumpling',
+      'Rainbow Dumpling',
+      'Golden Dumpling'
+    ];
+
+    const descriptions = [
+      'A super squishy transparent cube filled with shaving cream-like NeeDoh compound! Squeeze it to watch it deform.',
+      'Wendy is a bright green frog who loves reading books by the pond and gardening with her friends!',
+      'Cam is a cute calico cat mochi. He loves taking long naps in warm sunny spots and eating treats.',
+      'A soft, velvety gumdrop squishy. It has a beautiful matte surface texture and an incredibly slow rise.',
+      'Connor is a sweet black-and-white cow who loves baking fresh apple pies and playing soccer on the farm.',
+      'A cluster of three tiny, super-glossy neon squishy spheres that bounce and slide together!',
+      'A bright yellow stress ball covered in hundreds of shaggy, stretchy rubber strands ending in golden beads.',
+      'Archie is a pink axolotl who loves learning sign language and playing the harp at gymnastics events!',
+      'An ultra-rare holographic golden Nice Cube. Reflects light from every angle with spectacular chrome sparkles.',
+      'A classic red dumpling squishy. Freshly steamed and super soft, it deforms easily under pressure.',
+      'A bright orange dumpling squishy. Infused with a sweet citrus scent for extra sensory relaxation!',
+      'A bright yellow dumpling squishy. Soft and elastic, it deforms and instantly rebounds back into shape.',
+      'A cool green dumpling squishy. Feels incredibly refreshing to hold and squeeze after a long day.',
+      'A sky blue dumpling squishy. Emits a soothing ambient glow under direct sunlight.',
+      'A mysterious purple dumpling squishy. Its slow-rise density makes it incredibly satisfying to squish.',
+      'A bright pink dumpling squishy. A cute and stylish addition to any squishy collector catalog!',
+      'An ultraviolet reactive dumpling that glows with indigo light. Reveals secret glowing speckles under UV lights.',
+      'A legendary dumpling that reflects a complete 6-color rainbow gradient. A masterpiece of squishy art!',
+      'A solid gold metallic dumpling. Pure gold plating with dazzling sparkles that rotate as it spins.'
+    ];
+
+    const rarities = [
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'RARE', class: 'rare', points: 300 },
+      { text: 'RARE', class: 'rare', points: 300 },
+      { text: 'RARE', class: 'rare', points: 300 },
+      { text: 'LEGENDARY', class: 'legendary', points: 600 },
+      { text: 'LEGENDARY', class: 'legendary', points: 600 },
+      { text: 'LEGENDARY', class: 'legendary', points: 600 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'COMMON', class: 'common', points: 150 },
+      { text: 'RARE', class: 'rare', points: 300 },
+      { text: 'LEGENDARY', class: 'legendary', points: 600 },
+      { text: 'LEGENDARY', class: 'legendary', points: 600 }
+    ];
+
+    const item = rarities[typeId];
+    const rarityEl = document.getElementById('viewer-rarity');
+    if (rarityEl) {
+      rarityEl.textContent = item.text;
+      rarityEl.className = `card-rarity ${item.class}`;
+    }
+
+    document.getElementById('viewer-name').textContent = names[typeId];
+    document.getElementById('viewer-description').textContent = descriptions[typeId];
+    document.getElementById('viewer-val-points').textContent = item.points;
+
+    const inv = this.inventory[typeId] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
+    
+    // Default to first unlocked skin
+    let activeSkin = 'normal';
+    if (inv.normal > 0) activeSkin = 'normal';
+    else if (inv.glitter > 0) activeSkin = 'glitter';
+    else if (inv.metallic > 0) activeSkin = 'metallic';
+    else if (inv.galaxy > 0) activeSkin = 'galaxy';
+
+    this.activeViewerSkin = activeSkin;
+
+    const mults = { normal: '1.0x', glitter: '1.5x', metallic: '2.0x', galaxy: '3.0x' };
+    document.getElementById('viewer-val-mult').textContent = mults[activeSkin];
+
+    const setupBadge = (id, skinName, unlocked) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (unlocked) {
+        el.classList.remove('locked');
+      } else {
+        el.classList.add('locked');
+      }
+      el.onclick = () => {
+        if (unlocked) {
+          this.activeViewerSkin = skinName;
+          document.getElementById('viewer-val-mult').textContent = mults[skinName];
+          document.querySelectorAll('.viewer-skin-badge').forEach(b => b.classList.remove('active'));
+          el.classList.add('active');
+        }
+      };
+    };
+
+    setupBadge('badge-view-normal', 'normal', inv.normal > 0);
+    setupBadge('badge-view-glitter', 'glitter', inv.glitter > 0);
+    setupBadge('badge-view-metallic', 'metallic', inv.metallic > 0);
+    setupBadge('badge-view-galaxy', 'galaxy', inv.galaxy > 0);
+
+    // Set active badge style
+    document.querySelectorAll('.viewer-skin-badge').forEach(b => {
+      b.classList.remove('active');
+      if (b.dataset.skin === activeSkin) b.classList.add('active');
+    });
+
+    const modal = document.getElementById('squishy-viewer-modal');
+    if (modal) modal.classList.add('visible');
+
+    // Attach mouse handlers for interactive tilt
+    const canvas = document.getElementById('viewer-canvas');
+    if (canvas) {
+      canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / rect.width - 0.5;
+        const my = (e.clientY - rect.top) / rect.height - 0.5;
+        this.viewerTiltX = mx * 1.5;
+        this.viewerTiltY = my * 1.5;
+      };
+      canvas.onmouseleave = () => {
+        this.viewerTiltX = 0;
+        this.viewerTiltY = 0;
+      };
+    }
+
+    this.renderViewer();
+  }
+
+  renderViewer() {
+    if (!this.viewerActive) return;
+
+    const canvas = document.getElementById('viewer-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    this.viewerRotation += 0.012;
+    const angle = this.viewerRotation + this.viewerTiltX;
+
+    ctx.save();
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+
+    // Render large glowing skin aura behind toy
+    const skin = this.activeViewerSkin;
+    ctx.save();
+    const auraRadius = 85;
+    const auraGrad = ctx.createRadialGradient(0, 0, 15, 0, 0, auraRadius);
+
+    if (skin === 'glitter') {
+      auraGrad.addColorStop(0, 'rgba(244, 63, 94, 0.45)');
+      auraGrad.addColorStop(0.7, 'rgba(236, 72, 153, 0.15)');
+      auraGrad.addColorStop(1, 'rgba(236, 72, 153, 0)');
+    } else if (skin === 'metallic') {
+      auraGrad.addColorStop(0, 'rgba(241, 245, 249, 0.5)');
+      auraGrad.addColorStop(0.7, 'rgba(148, 163, 184, 0.18)');
+      auraGrad.addColorStop(1, 'rgba(148, 163, 184, 0)');
+    } else if (skin === 'galaxy') {
+      auraGrad.addColorStop(0, 'rgba(168, 85, 247, 0.55)');
+      auraGrad.addColorStop(0.6, 'rgba(99, 102, 241, 0.22)');
+      auraGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+      
+      // Spinner orbital celestial ring
+      ctx.strokeStyle = 'rgba(192, 132, 252, 0.35)';
+      ctx.lineWidth = 2.0;
+      ctx.save();
+      ctx.rotate(Date.now() * 0.001);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 70, 20, 0.2, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      auraGrad.addColorStop(0, 'rgba(255, 255, 255, 0.08)');
+      auraGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    }
+
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, auraRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+
+    // Draw the toy at large size (radius 48 = 3.4x size increase)
+    this.renderer.drawSquishyToy(ctx, this.viewerTypeId, 48, angle, skin);
+
+    // Accent overlays for the viewer (like stars, sparkles, chrome line)
+    if (skin === 'glitter') {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(-30, -30); ctx.lineTo(-20, -30);
+      ctx.moveTo(-25, -35); ctx.lineTo(-25, -25);
+      ctx.moveTo(25, 25); ctx.lineTo(35, 25);
+      ctx.moveTo(30, 20); ctx.lineTo(30, 30);
+      ctx.stroke();
+    } 
+    else if (skin === 'metallic') {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.moveTo(-35, -35);
+      ctx.lineTo(-10, -35);
+      ctx.lineTo(-25, 35);
+      ctx.lineTo(-50, 35);
+      ctx.closePath();
+      ctx.fill();
+    }
+    else if (skin === 'galaxy') {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(-22, 22, 2.0, 0, Math.PI*2);
+      ctx.arc(22, -22, 2.0, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+
+    requestAnimationFrame(() => this.renderViewer());
   }
 }
