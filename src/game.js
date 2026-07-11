@@ -1,0 +1,871 @@
+import Matter from 'matter-js';
+import { Gymnast } from './gymnast';
+import { Environment } from './environment';
+import { CustomRenderer } from './renderer';
+import { gameAudio } from './audio';
+
+const { Engine, Events, Composite, Vector, Body } = Matter;
+
+export class GymnasticsGame {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.width = 1600; 
+    this.height = 1000;
+    
+    // Core game stats
+    this.score = 0;
+    this.highScore = 0;
+    this.starCount = 0; // Current active run squishy health
+    this.highestAlt = 0; // Max Distance reached
+    this.flipsCompleted = 0; // Tricks completed
+    
+    // Persistent session inventory (tracks 4 skin variants for each of the 9 squishies)
+    this.inventory = {};
+    for (let t = 0; t < 9; t++) {
+      this.inventory[t] = { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
+    }
+
+    // Input tracking
+    this.activeKeys = {};
+    
+    // Tricks tracking
+    this.activeCombo = [];
+    this.inAir = true;
+    this.jumpCount = 0; // Double jump tracker
+    this.gameWon = false; // Represents the "Game Over" state
+    this.wipeoutTimer = 0; // Recovery ticks after a wipeout
+
+    // Physics step accumulator
+    this.accumulator = 0;
+    this.fixedDelta = 1000 / 60; // 16.666 ms
+
+    // Store customization choices
+    this.currentCustomization = {
+      skinColor: '#ffdbac',
+      hairColor: '#e0a96d',
+      hairStyle: 'pony',
+      outfitColor: '#db2777',
+      hat: 'none',
+      hasCape: false
+    };
+
+    this.initPhysics();
+    this.initGame();
+    this.initInput();
+    this.initCollisions();
+    
+    // Start loop
+    this.resizeCanvas();
+    window.addEventListener('resize', () => this.resizeCanvas());
+    
+    this.lastTime = performance.now();
+    this.loop();
+  }
+
+  initPhysics() {
+    this.engine = Engine.create({
+      gravity: { y: 1.35 } 
+    });
+    this.world = this.engine.world;
+  }
+
+  initGame() {
+    // 1. Build environment
+    this.environment = new Environment(this.world, this.width, this.height);
+    
+    // 2. Spawn gymnast near left side on the mat
+    this.gymnast = new Gymnast(this.world, 150, 700);
+    this.gymnast.customization = this.currentCustomization;
+    
+    // 3. Renderer
+    this.renderer = new CustomRenderer(this.canvas, this.world, this.gymnast, this.environment);
+
+    this.updateHUD();
+    this.updateCollectionUI();
+  }
+
+  initInput() {
+    window.addEventListener('keydown', (e) => {
+      if (this.gameWon) return;
+
+      const key = e.key.toLowerCase();
+      this.activeKeys[key] = true;
+
+
+      // Jump action
+      if (e.key === ' ' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.triggerJump();
+      }
+
+      // Reset shortcut (Enter key)
+      if (e.key === 'Enter') {
+        this.resetLevel();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const key = e.key.toLowerCase();
+      this.activeKeys[key] = false;
+    });
+
+    // Mobile / Touch controls hooking
+    this.setupTouchControls();
+  }
+
+  setupTouchControls() {
+    const bindBtn = (id, action) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      
+      const handlerStart = (e) => {
+        e.preventDefault();
+        if (this.gameWon || this.wipeoutTimer > 0) return;
+        
+        if (action === 'jump') {
+          this.triggerJump();
+        } else if (action === 'left') {
+          this.activeKeys['a'] = true;
+        } else if (action === 'right') {
+          this.activeKeys['d'] = true;
+        } else {
+          this.activeKeys[action] = true;
+        }
+      };
+
+      const handlerEnd = (e) => {
+        e.preventDefault();
+        if (action === 'left') {
+          this.activeKeys['a'] = false;
+        } else if (action === 'right') {
+          this.activeKeys['d'] = false;
+        } else if (action !== 'jump') {
+          this.activeKeys[action] = false;
+        }
+      };
+
+      btn.addEventListener('touchstart', handlerStart, { passive: false });
+      btn.addEventListener('touchend', handlerEnd, { passive: false });
+      btn.addEventListener('mousedown', handlerStart);
+      btn.addEventListener('mouseup', handlerEnd);
+      btn.addEventListener('mouseleave', handlerEnd);
+    };
+
+    bindBtn('btn-jump', 'jump');
+    bindBtn('btn-spin-left', 'left');
+    bindBtn('btn-spin-right', 'right');
+    
+    bindBtn('btn-backflip', 'q');  
+    bindBtn('btn-frontflip', 'w');   
+    bindBtn('btn-tuck', 'r');    
+    bindBtn('btn-split', 'e');   
+    bindBtn('btn-layout', 't');   
+    bindBtn('btn-reach', 'o');   
+    bindBtn('btn-front-aerial', 'y');
+    bindBtn('btn-side-aerial', 'u');
+    bindBtn('btn-front-handspring', 'f');
+    bindBtn('btn-back-handspring', 'h');
+  }
+
+  triggerJump() {
+    if (this.wipeoutTimer > 0) return;
+
+    if (this.gymnast.isGrabbing()) {
+      const velocity = this.gymnast.body.velocity;
+      this.gymnast.release('both');
+      Body.setVelocity(this.gymnast.body, { x: velocity.x + 4, y: -12.5 });
+      this.inAir = true;
+      this.jumpCount = 1; // set to 1 after releasing a bar (can double jump once)
+      gameAudio.playBoing();
+      return;
+    }
+
+    // Try normal jump (grounded)
+    if (this.gymnast.applyJumpPush()) {
+      this.inAir = true;
+      this.jumpCount = 1;
+      this.renderer.spawnDust(this.gymnast.body.position.x, this.gymnast.body.position.y + 26, 6);
+    }
+    // Try double jump (in air, jumpCount < 2)
+    else if (this.inAir && this.jumpCount < 2) {
+      this.jumpCount = 2;
+      const currentVx = this.gymnast.body.velocity.x;
+      
+      // Apply upward double-jump impulse
+      Body.setVelocity(this.gymnast.body, { x: currentVx, y: -11.5 });
+      
+      // Spawn double jump particles
+      const pos = this.gymnast.body.position;
+      this.renderer.spawnDust(pos.x, pos.y + 18, 8);
+      this.renderer.spawnSparkles(pos.x, pos.y + 18, 5);
+      this.renderer.spawnTextPopup(pos.x, pos.y, 'DOUBLE JUMP!', '#38bdf8');
+      
+      gameAudio.playBoing();
+    }
+  }
+
+  addCombo(trickName, score) {
+    if (!this.activeCombo.some(t => t.name === trickName)) {
+      this.activeCombo.push({ name: trickName, score: score });
+      this.renderer.spawnSparkles(this.gymnast.body.position.x, this.gymnast.body.position.y, 8);
+      this.renderer.spawnTextPopup(this.gymnast.body.position.x, this.gymnast.body.position.y, `${trickName}! +${score}`, '#c084fc');
+      gameAudio.playCheer();
+    }
+  }
+
+  updateGymnastTricks() {
+    if (this.gameWon || this.wipeoutTimer > 0) return;
+
+    const gymnast = this.gymnast;
+
+    // 1. AIR TRICKS (if inAir)
+    if (this.inAir) {
+      if (this.activeKeys['q'] || this.activeKeys['1']) {
+        gymnast.state = 'flip-back';
+        gymnast.visualAngle -= 0.15; // spin backward as long as held
+        this.addCombo('BACKFLIP', 250);
+      } 
+      else if (this.activeKeys['w'] || this.activeKeys['2']) {
+        gymnast.state = 'flip-front';
+        gymnast.visualAngle += 0.15; // spin forward as long as held
+        this.addCombo('FRONTFLIP', 250);
+      } 
+      else if (this.activeKeys['e'] || this.activeKeys['3']) {
+        gymnast.state = 'split';
+        this.addCombo('SPLIT JUMP', 150);
+      } 
+      else if (this.activeKeys['r'] || this.activeKeys['4']) {
+        gymnast.state = 'tuck';
+        this.addCombo('TUCK JUMP', 150);
+      } 
+      else if (this.activeKeys['t'] || this.activeKeys['5']) {
+        gymnast.state = 'layout';
+        this.addCombo('LAYOUT', 150);
+      } 
+      else if (this.activeKeys['y'] || this.activeKeys['6']) {
+        gymnast.state = 'front-aerial';
+        gymnast.visualAngle += 0.16; // spin forward hands-free!
+        this.addCombo('FRONT AERIAL', 300);
+      }
+      else if (this.activeKeys['u'] || this.activeKeys['7']) {
+        gymnast.state = 'side-aerial';
+        const goingLeft = this.activeKeys['a'] || this.activeKeys['arrowleft'];
+        gymnast.visualAngle += goingLeft ? -0.16 : 0.16; // spin sideways hands-free!
+        this.addCombo('SIDE AERIAL', 300);
+      }
+      else if (this.activeKeys['f'] || this.activeKeys['8']) {
+        gymnast.state = 'front-handspring';
+        gymnast.visualAngle += 0.16; // flip forward in air
+        this.addCombo('FRONT HANDSPRING', 280);
+      }
+      else if (this.activeKeys['h'] || this.activeKeys['9']) {
+        gymnast.state = 'back-handspring';
+        gymnast.visualAngle -= 0.16; // flip backward in air
+        this.addCombo('BACK HANDSPRING', 280);
+      }
+      else if (this.activeKeys['o']) {
+        gymnast.state = 'reach';
+        this.checkBarGrabbing();
+      } 
+      else {
+        if (gymnast.state !== 'swing') {
+          gymnast.state = 'jump'; // return to neutral jump
+        }
+      }
+    }
+    // 2. FLOOR TRICKS (if grounded)
+    else {
+      const goingLeft = this.activeKeys['a'] || this.activeKeys['arrowleft'];
+      
+      if (this.activeKeys['e'] || this.activeKeys['3']) {
+        gymnast.state = 'cartwheel';
+        this.addCombo('CARTWHEEL', 180);
+        
+        if (goingLeft) {
+          gymnast.visualAngle -= 0.14; // Cartwheel roll left
+          Body.setVelocity(gymnast.body, { x: Math.min(gymnast.body.velocity.x, -3.8), y: gymnast.body.velocity.y });
+        } else {
+          gymnast.visualAngle += 0.14; // Cartwheel roll right
+          Body.setVelocity(gymnast.body, { x: Math.max(gymnast.body.velocity.x, 3.8), y: gymnast.body.velocity.y });
+        }
+        if (Math.random() < 0.15) this.renderer.spawnSparkles(gymnast.body.position.x, gymnast.body.position.y + 20, 2);
+      } 
+      else if (this.activeKeys['t'] || this.activeKeys['5']) {
+        gymnast.state = 'handstand';
+        gymnast.visualAngle = Math.PI; // upside down!
+        this.addCombo('HANDSTAND', 200);
+        
+        if (goingLeft) {
+          Body.setVelocity(gymnast.body, { x: Math.min(gymnast.body.velocity.x, -2.8), y: gymnast.body.velocity.y });
+        } else {
+          Body.setVelocity(gymnast.body, { x: Math.max(gymnast.body.velocity.x, 2.8), y: gymnast.body.velocity.y });
+        }
+        if (Math.random() < 0.15) this.renderer.spawnDust(gymnast.body.position.x, gymnast.body.position.y + 20, 2);
+      } 
+      else if (this.activeKeys['w'] || this.activeKeys['2']) {
+        gymnast.state = 'roll';
+        this.addCombo('FORWARD ROLL', 150);
+        
+        if (goingLeft) {
+          gymnast.visualAngle -= 0.18; // Roll left
+          Body.setVelocity(gymnast.body, { x: Math.min(gymnast.body.velocity.x, -4.2), y: gymnast.body.velocity.y });
+        } else {
+          gymnast.visualAngle += 0.18; // Roll right
+          Body.setVelocity(gymnast.body, { x: Math.max(gymnast.body.velocity.x, 4.2), y: gymnast.body.velocity.y });
+        }
+        if (Math.random() < 0.15) this.renderer.spawnDust(gymnast.body.position.x, gymnast.body.position.y + 20, 2);
+      } 
+      else if (this.activeKeys['f'] || this.activeKeys['8']) {
+        gymnast.state = 'front-handspring';
+        this.addCombo('FRONT HANDSPRING', 280);
+        
+        if (goingLeft) {
+          gymnast.visualAngle -= 0.22;
+          Body.setVelocity(gymnast.body, { x: Math.min(gymnast.body.velocity.x, -5.5), y: -5.0 });
+        } else {
+          gymnast.visualAngle += 0.22;
+          Body.setVelocity(gymnast.body, { x: Math.max(gymnast.body.velocity.x, 5.5), y: -5.0 });
+        }
+        if (Math.random() < 0.15) this.renderer.spawnDust(gymnast.body.position.x, gymnast.body.position.y + 20, 3);
+      }
+      else if (this.activeKeys['h'] || this.activeKeys['9']) {
+        gymnast.state = 'back-handspring';
+        this.addCombo('BACK HANDSPRING', 280);
+        
+        if (goingLeft) {
+          gymnast.visualAngle += 0.22;
+          Body.setVelocity(gymnast.body, { x: Math.min(gymnast.body.velocity.x, -5.5), y: -5.0 });
+        } else {
+          gymnast.visualAngle -= 0.22;
+          Body.setVelocity(gymnast.body, { x: Math.max(gymnast.body.velocity.x, 5.5), y: -5.0 });
+        }
+        if (Math.random() < 0.15) this.renderer.spawnDust(gymnast.body.position.x, gymnast.body.position.y + 20, 3);
+      }
+      else if (
+        gymnast.state === 'cartwheel' || 
+        gymnast.state === 'handstand' || 
+        gymnast.state === 'roll' ||
+        gymnast.state === 'front-handspring' ||
+        gymnast.state === 'back-handspring'
+      ) {
+        gymnast.state = 'idle'; // clear floor trick when key released
+      }
+    }
+  }
+
+  initCollisions() {
+    Events.on(this.engine, 'collisionStart', (event) => {
+      event.pairs.forEach(pair => {
+        const labelA = pair.bodyA.label || '';
+        const labelB = pair.bodyB.label || '';
+
+        const isStarCollision = labelA === 'star-collectible' || labelB === 'star-collectible';
+        if (isStarCollision) {
+          const starBody = labelA === 'star-collectible' ? pair.bodyA : pair.bodyB;
+          const gymnastBody = labelA === 'star-collectible' ? pair.bodyB : pair.bodyA;
+          
+          if (gymnastBody.label && gymnastBody.label.startsWith('gymnast')) {
+            this.collectStar(starBody);
+          }
+          return;
+        }
+
+        const isGymnastBody = (lbl) => lbl === 'gymnast-body';
+        if (isGymnastBody(labelA) || isGymnastBody(labelB)) {
+          const platformLabel = isGymnastBody(labelA) ? labelB : labelA;
+          
+          // 1. TRAMPOLINE HIGH LAUNCH
+          if (platformLabel.includes('trampoline')) {
+            Body.setVelocity(this.gymnast.body, { 
+              x: this.gymnast.body.velocity.x * 1.15, 
+              y: -19.5 
+            });
+            this.inAir = true;
+            this.gymnast.grounded = false;
+            this.jumpCount = 0; // reset double jump in air
+            this.renderer.spawnSparkles(this.gymnast.body.position.x, this.gymnast.body.position.y + 20, 16);
+            this.renderer.spawnTextPopup(this.gymnast.body.position.x, this.gymnast.body.position.y, 'TRAMPOLINE LAUNCH!', '#d946ef');
+            gameAudio.playBoing();
+            return;
+          }
+          
+          // 2. SPRINGBOARD MEDIUM BOOST
+          if (platformLabel.includes('springboard')) {
+            Body.setVelocity(this.gymnast.body, { 
+              x: this.gymnast.body.velocity.x * 1.1, 
+              y: -14.5 
+            });
+            this.inAir = true;
+            this.gymnast.grounded = false;
+            this.jumpCount = 0; // reset double jump in air
+            this.renderer.spawnDust(this.gymnast.body.position.x, this.gymnast.body.position.y + 20, 10);
+            this.renderer.spawnTextPopup(this.gymnast.body.position.x, this.gymnast.body.position.y, 'SPRINGBOARD BOOST!', '#eab308');
+            gameAudio.playBoing();
+            return;
+          }
+
+          // 3. STANDARD MATS / FLOORS / BEAMS
+          const isGroundPlatform = (lbl) => 
+            lbl.includes('mat') || 
+            lbl.includes('floor') || 
+            lbl.includes('beam') || 
+            lbl.includes('slide') ||
+            lbl.includes('tower');
+
+          if (isGroundPlatform(platformLabel)) {
+            this.handleLanding();
+          }
+        }
+      });
+    });
+  }
+
+  collectStar(starBody) {
+    const toyType = starBody.toyType !== undefined ? starBody.toyType : 0;
+    const toySkin = starBody.toySkin || 'normal';
+    
+    // 1. Points scale based on rarity: Common=150, Rare=300, Legendary=600
+    let basePoints = 150;
+    if (toyType >= 3 && toyType <= 5) {
+      basePoints = 300;
+    } else if (toyType >= 6) {
+      basePoints = 600;
+    }
+
+    // 2. Skin multipliers: glitter=1.5x, metallic=2x, galaxy=3x
+    let multiplier = 1.0;
+    let skinLabel = '';
+    if (toySkin === 'glitter') {
+      multiplier = 1.5;
+      skinLabel = 'Glitter ';
+    } else if (toySkin === 'metallic') {
+      multiplier = 2.0;
+      skinLabel = 'Metallic ';
+    } else if (toySkin === 'galaxy') {
+      multiplier = 3.0;
+      skinLabel = 'Galaxy ';
+    }
+
+    const finalPoints = Math.round(basePoints * multiplier);
+    
+    // Add to active run health and session catalog counts
+    this.starCount++;
+    this.inventory[toyType][toySkin]++;
+    this.score += finalPoints;
+    
+    gameAudio.playCheer();
+
+    const names = [
+      'Nice Cube NeeDoh', 
+      'Wendy Frog Squish', 
+      'Cam Cat Squish', 
+      'NeeDoh Gumdrop', 
+      'Connor Cow Squish', 
+      'Teenie NeeDohs', 
+      'Shaggy NeeDoh', 
+      'Archie Axolotl Squish', 
+      'Golden Nice Cube'
+    ];
+    
+    const colors = [
+      '#38bdf8', 
+      '#4ade80', 
+      '#fef3c7', 
+      '#f472b6', 
+      '#ffffff', 
+      '#fb923c', 
+      '#eab308', 
+      '#fbcfe8', 
+      '#fbbf24'
+    ];
+
+    // Fancy variant popup coloring
+    let popupColor = colors[toyType];
+    if (toySkin === 'glitter') popupColor = '#f472b6'; // pink glitter text
+    else if (toySkin === 'metallic') popupColor = '#cbd5e1'; // chrome silver text
+    else if (toySkin === 'galaxy') popupColor = '#c084fc'; // purple galaxy text
+
+    const pos = starBody.position;
+    this.renderer.spawnSparkles(pos.x, pos.y, 14);
+    this.renderer.spawnTextPopup(pos.x, pos.y, `${skinLabel}${names[toyType]}! +${finalPoints}`, popupColor);
+
+    this.environment.respawnStar(starBody);
+    this.updateHUD();
+    this.updateCollectionUI();
+  }
+
+  handleLanding() {
+    if (!this.inAir || this.gameWon) return;
+    this.inAir = false;
+    this.gymnast.grounded = true;
+    this.jumpCount = 0; // reset double jump counter on landing
+
+    const normalizedAngle = Math.abs(this.gymnast.visualAngle) % (Math.PI * 2);
+    const tolerance = 1.2; 
+    const isUpright = normalizedAngle < tolerance || normalizedAngle > (Math.PI * 2 - tolerance);
+
+    if (isUpright) {
+      this.gymnast.visualAngle = Math.round(this.gymnast.visualAngle / (Math.PI * 2)) * (Math.PI * 2);
+      this.renderer.spawnDust(this.gymnast.body.position.x, this.gymnast.body.position.y + 26, 12);
+      
+      // Maintain landing momentum if moving
+      if (this.activeKeys['d'] || this.activeKeys['arrowright'] || this.activeKeys['a'] || this.activeKeys['arrowleft']) {
+        this.gymnast.state = 'run';
+      } else {
+        this.gymnast.state = 'idle';
+      }
+
+      if (this.activeCombo.length > 0) {
+        const baseScore = this.activeCombo.reduce((sum, t) => sum + t.score, 0);
+        const multiplier = this.activeCombo.length;
+        const comboBonus = baseScore * multiplier;
+
+        this.score += comboBonus;
+        this.flipsCompleted += multiplier;
+
+        this.renderer.spawnConfetti(this.gymnast.body.position.x, this.gymnast.body.position.y - 20, 20);
+        this.renderer.spawnTextPopup(
+          this.gymnast.body.position.x, 
+          this.gymnast.body.position.y - 60, 
+          `PERFECT LANDING! ${multiplier}x Combo (+${comboBonus})`, 
+          '#10b981'
+        );
+
+        this.activeCombo = [];
+      } else {
+        gameAudio.playGrab();
+      }
+    } else {
+      // Landing failed! Trigger rings-spill penalty or death
+      this.triggerWipeout();
+    }
+
+    this.updateHUD();
+  }
+
+  triggerWipeout() {
+    // 1. Calculate spill count (losses up to 3 squishies)
+    const spillCount = Math.min(this.starCount, 3);
+    
+    if (spillCount > 0) {
+      // Lose squishy health and trigger physical scatter animation
+      this.starCount -= spillCount;
+      
+      // Determine what unlocked toy types are available to scatter
+      const collectedTypes = [];
+      for (let t = 0; t < 9; t++) {
+        const inv = this.inventory[t] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
+        const sum = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
+        if (sum > 0) collectedTypes.push(t);
+      }
+      if (collectedTypes.length === 0) collectedTypes.push(0);
+
+      const scatterTypes = [];
+      for (let i = 0; i < spillCount; i++) {
+        scatterTypes.push(collectedTypes[Math.floor(Math.random() * collectedTypes.length)]);
+      }
+
+      this.gymnast.setPose('wipeout');
+      this.wipeoutTimer = 90; // 1.5 seconds cooldown
+      this.activeCombo = [];  // Forfeit active combo queue
+
+      // Trigger physical bounce particles
+      const playerPos = this.gymnast.body.position;
+      this.renderer.spawnPhysicalSpill(playerPos.x, playerPos.y, spillCount, scatterTypes);
+      this.renderer.triggerShake(14);
+      this.renderer.spawnTextPopup(playerPos.x, playerPos.y, `TOY SPILL! -${spillCount} Squishies`, '#fbbf24');
+      
+      gameAudio.playSplat();
+    } else {
+      // Fatal! 0 squishies left, trigger immediate game over
+      this.triggerGameOver();
+    }
+  }
+
+  checkBarGrabbing() {
+    if (this.wipeoutTimer > 0 || this.gymnast.state === 'swing') return;
+
+    const hands = this.gymnast.getHandPositions();
+    const grabPoints = this.environment.grabPoints;
+    const maxGrabDist = 26;
+
+    ['left', 'right'].forEach(side => {
+      const hand = hands[side];
+      
+      for (let i = 0; i < grabPoints.length; i++) {
+        const gp = grabPoints[i];
+        const dist = Vector.magnitude(Vector.sub(hand, { x: gp.x, y: gp.y }));
+
+        if (dist <= maxGrabDist) {
+          this.gymnast.grab(side, gp.body, { x: gp.x, y: gp.y });
+          this.inAir = false;
+          this.activeCombo = []; 
+          break;
+        }
+      }
+    });
+  }
+
+  applyHorizontalMovement() {
+    if (this.gameWon) return;
+
+    // Traverse along high bars while swinging
+    if (this.gymnast.state === 'swing') {
+      const leftC = this.gymnast.grabConstraints.left;
+      const rightC = this.gymnast.grabConstraints.right;
+      
+      const goingLeft = this.activeKeys['a'] || this.activeKeys['arrowleft'];
+      const goingRight = this.activeKeys['d'] || this.activeKeys['arrowright'];
+
+      if (goingLeft || goingRight) {
+        const dx = goingRight ? 1.8 : -1.8;
+        
+        [leftC, rightC].forEach(c => {
+          if (c && c.bodyB && c.bodyB.label === 'swing-bar') {
+            let newLocalX = c.pointB.x + dx;
+            const halfWidth = 55; // Keep slightly inside the 60px bar radius
+            newLocalX = Math.max(-halfWidth, Math.min(halfWidth, newLocalX));
+            
+            c.pointB.x = newLocalX;
+            
+            // Move physical body position along with the grab point
+            Body.setPosition(this.gymnast.body, {
+              x: this.gymnast.body.position.x + dx,
+              y: this.gymnast.body.position.y
+            });
+            
+            // Leg shimmy animation
+            this.gymnast.runFrame += 0.08;
+          }
+        });
+      }
+      return;
+    }
+
+    const body = this.gymnast.body;
+    let targetVx = 0;
+    
+    // Scale horizontal speed dynamically as distance progresses
+    const distance = Math.max(0, Math.floor(body.position.x / 100));
+    const speedMultiplier = 1.0 + Math.min(0.45, distance * 0.00035); // up to +45% speed!
+    const baseSpeed = 7.8;
+    const runSpeed = baseSpeed * speedMultiplier;
+
+    if (this.wipeoutTimer <= 0) {
+      if (this.activeKeys['d'] || this.activeKeys['arrowright']) {
+        targetVx = runSpeed;
+        if (!this.inAir) {
+          this.gymnast.setPose('run');
+        }
+      } else if (this.activeKeys['a'] || this.activeKeys['arrowleft']) {
+        targetVx = -runSpeed;
+        if (!this.inAir) {
+          this.gymnast.setPose('run');
+        }
+      } else if (!this.inAir) {
+        this.gymnast.setPose('idle');
+      }
+    }
+
+    if (this.wipeoutTimer > 0) {
+      Body.setVelocity(body, { x: body.velocity.x * 0.95, y: body.velocity.y });
+    } else {
+      const accel = this.inAir ? 0.08 : 0.22;
+      const vx = body.velocity.x + (targetVx - body.velocity.x) * accel;
+      Body.setVelocity(body, { x: vx, y: body.velocity.y });
+    }
+  }
+
+  loop() {
+    const now = performance.now();
+    const frameTime = now - this.lastTime;
+    this.lastTime = now;
+
+    this.accumulator += Math.min(250, frameTime);
+
+    while (this.accumulator >= this.fixedDelta) {
+      Engine.update(this.engine, this.fixedDelta);
+
+      this.applyHorizontalMovement();
+      this.updateGymnastTricks();
+      this.gymnast.updateMuscles();
+
+      this.environment.updateLevel(this.gymnast.body.position.x);
+
+      if (this.wipeoutTimer > 0) {
+        this.wipeoutTimer--;
+        if (this.wipeoutTimer <= 0) {
+          this.gymnast.state = 'idle';
+          this.gymnast.visualAngle = 0;
+        }
+      }
+
+      // Check fall deaths
+      if (this.gymnast.body.position.y > 1050 && !this.gameWon) {
+        this.triggerGameOver();
+      }
+
+      this.accumulator -= this.fixedDelta;
+    }
+
+    // Distance metrics
+    const currentDistance = Math.max(0, Math.floor(this.gymnast.body.position.x / 100));
+    if (currentDistance > this.highestAlt) {
+      this.highestAlt = currentDistance;
+      this.score += 1;
+    }
+
+    this.renderer.render(this.canvas.width, this.canvas.height);
+
+    this.updateHUD();
+
+    if (!this.gameWon) {
+      requestAnimationFrame(() => this.loop());
+    }
+  }
+
+  triggerGameOver() {
+    this.gameWon = true;
+    this.gymnast.setPose('wipeout');
+    gameAudio.playSplat();
+
+    const victoryTitle = document.querySelector('#victory-screen h2');
+    if (victoryTitle) victoryTitle.textContent = 'GAME OVER!';
+
+    const victorySub = document.querySelector('#victory-screen p');
+    if (victorySub) victorySub.textContent = 'Belle ran out of Squishy shields and crashed! Collect toys to stay protected.';
+
+    const victoryStars = document.getElementById('victory-stars');
+    if (victoryStars) victoryStars.textContent = this.starCount;
+    
+    const victoryScore = document.getElementById('victory-score');
+    if (victoryScore) victoryScore.textContent = this.score;
+
+    const victoryOverlay = document.getElementById('victory-screen');
+    if (victoryOverlay) {
+      victoryOverlay.classList.add('visible');
+    }
+  }
+
+  resetLevel() {
+    Composite.clear(this.world, false);
+    
+    // Regenerate Environment and Gymnast (preserve session inventory collections!)
+    this.environment = new Environment(this.world, this.width, this.height);
+    this.gymnast = new Gymnast(this.world, 150, 700);
+    this.gymnast.customization = this.currentCustomization;
+
+    // Reset renderer
+    this.renderer.gymnast = this.gymnast;
+    this.renderer.environment = this.environment;
+    this.renderer.particles = [];
+    this.renderer.spillParticles = [];
+    this.renderer.popups = [];
+    this.renderer.trail = [];
+    
+    // Reset active run stats (Session inventory remains!)
+    this.score = 0;
+    this.starCount = 0; // Starts at 0 health, need first collection for protection
+    this.highestAlt = 0;
+    this.flipsCompleted = 0;
+    this.activeCombo = [];
+    this.inAir = true;
+    this.jumpCount = 0;
+    this.gameWon = false;
+    this.wipeoutTimer = 0;
+
+    const victoryOverlay = document.getElementById('victory-screen');
+    if (victoryOverlay) {
+      victoryOverlay.classList.remove('visible');
+    }
+
+    this.updateHUD();
+    this.updateCollectionUI();
+    
+    this.lastTime = performance.now();
+    this.loop();
+  }
+
+  updateCustomization(field, val) {
+    this.currentCustomization[field] = val;
+    if (this.gymnast) {
+      this.gymnast.customization[field] = val;
+    }
+  }
+
+  updateCollectionUI() {
+    for (let i = 0; i < 9; i++) {
+      const inv = this.inventory[i] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
+      const totalCollected = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
+      
+      const card = document.getElementById(`card-${i}`);
+      if (!card) continue;
+
+      const countEl = card.querySelector('.card-count');
+      if (countEl) countEl.textContent = `Collected: ${totalCollected}`;
+
+      if (totalCollected > 0 && card.classList.contains('locked')) {
+        card.classList.remove('locked');
+      }
+
+      // Unlock individual skin badges
+      const normalBadge = card.querySelector('.skin-badge.normal');
+      const glitterBadge = card.querySelector('.skin-badge.glitter');
+      const metallicBadge = card.querySelector('.skin-badge.metallic');
+      const galaxyBadge = card.querySelector('.skin-badge.galaxy');
+
+      if (normalBadge && inv.normal > 0) normalBadge.classList.remove('locked');
+      if (glitterBadge && inv.glitter > 0) glitterBadge.classList.remove('locked');
+      if (metallicBadge && inv.metallic > 0) metallicBadge.classList.remove('locked');
+      if (galaxyBadge && inv.galaxy > 0) galaxyBadge.classList.remove('locked');
+
+      // Draw matching premium 3D vector graphics on the collection card canvas
+      const canvas = document.getElementById(`collection-canvas-${i}`);
+      if (canvas && this.renderer) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        
+        // Match glow shading on Legendary items
+        if (i === 6) {
+          ctx.shadowBlur = 5;
+          ctx.shadowColor = '#eab308';
+        } else if (i === 7) {
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#fecdd3';
+        } else if (i === 8) {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = '#fbbf24';
+        }
+
+        this.renderer.drawSquishyToy(ctx, i, 17);
+        ctx.restore();
+      }
+    }
+  }
+
+  updateHUD() {
+    if (this.score > this.highScore) {
+      this.highScore = this.score;
+    }
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+
+    setVal('val-score', this.score);
+    setVal('val-highscore', this.highScore);
+    setVal('val-stars', this.starCount);
+    setVal('val-maxalt', `${this.highestAlt}m`);
+    setVal('val-flips', this.flipsCompleted);
+  }
+
+  resizeCanvas() {
+    const container = this.canvas.parentElement;
+    this.canvas.width = container.clientWidth;
+    this.canvas.height = container.clientHeight;
+  }
+}

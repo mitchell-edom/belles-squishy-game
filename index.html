@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Belle's Gymnastics & Contortionist Arena</title>
+  
+  <!-- Inline SVG favicon (Gymnast Emoji) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤸‍♀️</text></svg>">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/src/style.css">
+  
+  <!-- Error Diagnostic Catcher -->
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      const div = document.createElement('div');
+      div.style.position = 'fixed';
+      div.style.top = '10px';
+      div.style.left = '10px';
+      div.style.right = '10px';
+      div.style.background = '#ef4444';
+      div.style.color = '#fff';
+      div.style.padding = '20px';
+      div.style.zIndex = '999999';
+      div.style.borderRadius = '12px';
+      div.style.fontFamily = 'monospace';
+      div.style.maxHeight = '80vh';
+      div.style.overflowY = 'auto';
+      div.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
+      div.innerHTML = '<h3>🚨 Game Initialization Crash</h3>' + 
+                      '<p><strong>Message:</strong> ' + msg + '</p>' + 
+                      '<p><strong>File:</strong> ' + url + ':' + line + ':' + col + '</p>' + 
+                      '<pre style="background: rgba(0,0,0,0.2); padding: 10px; margin-top: 10px; border-radius: 6px; overflow-x: auto;">' + 
+                      (error ? error.stack : 'No stack trace available') + '</pre>';
+      document.body.appendChild(div);
+      return false;
+    };
+  </script>
+
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="game-container">
+    
+    <!-- Full-screen Canvas -->
+    <canvas id="game-canvas" tabindex="0"></canvas>
+
+    <!-- Overlay HUD (Mario/Arcade style) -->
+    <div class="hud-overlay">
+      <!-- Player Badge (Top Left) -->
+      <div class="player-badge">
+        <div class="avatar">🤸‍♀️</div>
+        <div class="badge-details">
+          <span class="player-name">BELLE</span>
+          <span class="level-name">World 1-1: Gym Hall</span>
+        </div>
+      </div>
+
+      <!-- Center Score & Stars -->
+      <div class="center-hud">
+        <div class="hud-box score-box">
+          <span class="hud-label">SCORE</span>
+          <span id="val-score" class="hud-val score-neon">0</span>
+        </div>
+        <div class="hud-box star-box">
+          <span class="hud-label">SQUISHIES</span>
+          <span class="hud-val star-neon">🧸 <span id="val-stars">0</span></span>
+        </div>
+      </div>
+
+      <!-- Right Heights & Flips -->
+      <div class="right-hud">
+        <div class="hud-box height-box">
+          <span class="hud-label">DISTANCE</span>
+          <span id="val-maxalt" class="hud-val alt-neon">0m</span>
+          <span class="hud-sub">RECORD</span>
+        </div>
+        <div class="hud-box flip-box">
+          <span class="hud-label">TRICKS</span>
+          <span id="val-flips" class="hud-val flip-neon">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- UI Overlay Toggle Buttons -->
+    <div class="ui-triggers">
+      <button id="btn-toggle-customizer" class="trigger-btn">👗 Customize</button>
+      <button id="btn-toggle-collection" class="trigger-btn">🧸 Collection</button>
+      <button id="btn-toggle-help" class="trigger-btn">🎮 How to Play</button>
+      <button id="sound-toggle" class="trigger-btn sound-btn">🔊 Sound</button>
+      <button id="btn-reset-top" class="trigger-btn reset-btn">🔄 Restart</button>
+    </div>
+
+    <!-- Floating Customizer Modal -->
+    <div id="customizer-modal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>👗 Customize Gymnast</h3>
+          <button id="btn-close-customizer" class="btn-close">&times;</button>
+        </div>
+        
+        <div class="modal-body customizer-options">
+          <div class="option-row">
+            <label for="outfit-color">Leotard Color</label>
+            <select id="outfit-color">
+              <option value="#db2777" selected>Sweet Pink 🌸</option>
+              <option value="#06b6d4">Neon Teal 💎</option>
+              <option value="#a855f7">Royal Purple 👑</option>
+              <option value="#eab308">Bouncy Gold 🌟</option>
+              <option value="#22c55e">Lime Mint 🍏</option>
+              <option value="#ef4444">Cherry Red 🍒</option>
+            </select>
+          </div>
+
+          <div class="option-row">
+            <label for="hair-style">Hair Style</label>
+            <select id="hair-style">
+              <option value="pony" selected>Ponytail</option>
+              <option value="buns">Space Buns</option>
+              <option value="curly">Curly Puff</option>
+              <option value="short">Short Haircut</option>
+            </select>
+          </div>
+
+          <div class="option-row color-picker-row">
+            <label for="hair-color">Hair Color</label>
+            <input type="color" id="hair-color" value="#e0a96d">
+          </div>
+
+          <div class="option-row color-picker-row">
+            <label for="skin-color">Skin Tone</label>
+            <input type="color" id="skin-color" value="#ffdbac">
+          </div>
+
+          <div class="option-row">
+            <label for="hat-type">Funny Hat</label>
+            <select id="hat-type">
+              <option value="none" selected>No Hat</option>
+              <option value="crown">Royal Crown 👑</option>
+              <option value="chef">Chef Hat 👨‍🍳</option>
+              <option value="party">Party Cone 🎉</option>
+              <option value="mask">Hero Mask 🦸‍♀️</option>
+            </select>
+          </div>
+
+          <div class="option-row checkbox-row">
+            <input type="checkbox" id="has-cape">
+            <label for="has-cape">🦸‍♀️ Superhero Cape!</label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btn-reset" class="btn-primary">🔄 Reset Gymnast</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Collection Modal -->
+    <div id="collection-modal" class="modal-overlay">
+      <div class="modal-card" style="max-width: 480px; width: 95%;">
+        <div class="modal-header">
+          <h3>🧸 Toy Collection</h3>
+          <button id="btn-close-collection" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body collection-scroll">
+          <p class="collection-intro">Collect cute viral toys in the level to unlock them in your catalog!</p>
+          <div class="collection-grid">
+            
+            <div id="card-0" class="collection-card locked">
+              <div class="card-rarity common">COMMON</div>
+              <canvas id="collection-canvas-0" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Nice Cube NeeDoh</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+            </div>
+
+            <div id="card-1" class="collection-card locked">
+              <div class="card-rarity common">COMMON</div>
+              <canvas id="collection-canvas-1" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Wendy Frog Squish</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+            </div>
+
+            <div id="card-2" class="collection-card locked">
+              <div class="card-rarity common">COMMON</div>
+              <canvas id="collection-canvas-2" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Cam Cat Squish</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+            </div>
+
+            <div id="card-3" class="collection-card locked">
+              <div class="card-rarity rare">RARE</div>
+              <canvas id="collection-canvas-3" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">NeeDoh Gumdrop</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+              <div class="card-lock-info">Unlock at 400m</div>
+            </div>
+
+            <div id="card-4" class="collection-card locked">
+              <div class="card-rarity rare">RARE</div>
+              <canvas id="collection-canvas-4" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Connor Cow Squish</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+              <div class="card-lock-info">Unlock at 400m</div>
+            </div>
+
+            <div id="card-5" class="collection-card locked">
+              <div class="card-rarity rare">RARE</div>
+              <canvas id="collection-canvas-5" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Teenie NeeDohs</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+              <div class="card-lock-info">Unlock at 800m</div>
+            </div>
+
+            <div id="card-6" class="collection-card locked">
+              <div class="card-rarity legendary">LEGENDARY</div>
+              <canvas id="collection-canvas-6" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Shaggy NeeDoh</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+              <div class="card-lock-info">Unlock at 1200m</div>
+            </div>
+
+            <div id="card-7" class="collection-card locked">
+              <div class="card-rarity legendary">LEGENDARY</div>
+              <canvas id="collection-canvas-7" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Archie Axolotl Squish</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+              <div class="card-lock-info">Unlock at 1200m</div>
+            </div>
+
+            <div id="card-8" class="collection-card locked">
+              <div class="card-rarity legendary">LEGENDARY</div>
+              <canvas id="collection-canvas-8" width="56" height="56" class="card-canvas"></canvas>
+              <div class="card-name">Golden Nice Cube</div>
+              <div class="card-skins-row">
+                <span class="skin-badge normal locked" title="Normal">N</span>
+                <span class="skin-badge glitter locked" title="Glitter">G</span>
+                <span class="skin-badge metallic locked" title="Metallic">M</span>
+                <span class="skin-badge galaxy locked" title="Galaxy">C</span>
+              </div>
+              <div class="card-count">Collected: 0</div>
+              <div class="card-lock-info">Unlock at 1500m</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Help Modal -->
+    <div id="help-modal" class="modal-overlay">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>🎮 Keyboard Controls</h3>
+          <button id="btn-close-help" class="btn-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <ul class="moves-guide">
+            <li>
+              <kbd>A</kbd> or <kbd>D</kbd>
+              <div class="desc"><strong>Run</strong>: Move Belle left or right!</div>
+            </li>
+            <li>
+              <kbd>Spacebar</kbd> or <kbd>▲</kbd>
+              <div class="desc"><strong>Jump</strong>: Bounce off the ground or let go of swinging bars!</div>
+            </li>
+            <li>
+              <kbd>Q</kbd> or <kbd>1</kbd>
+              <div class="desc"><strong>Backflip</strong>: Perform a full 360° back flip!</div>
+            </li>
+            <li>
+              <kbd>W</kbd> or <kbd>2</kbd>
+              <div class="desc"><strong>Frontflip</strong>: Perform a 360° front flip!</div>
+            </li>
+            <li>
+              <kbd>E</kbd> or <kbd>3</kbd>
+              <div class="desc"><strong>Split</strong>: Strike a horizontal leg split!</div>
+            </li>
+            <li>
+              <kbd>R</kbd> or <kbd>4</kbd>
+              <div class="desc"><strong>Tuck</strong>: Curl knees to chest in a tight spin!</div>
+            </li>
+            <li>
+              <kbd>T</kbd> or <kbd>5</kbd>
+              <div class="desc"><strong>Layout</strong>: Straighten out in a clean gymnastics form!</div>
+            </li>
+            <li>
+              <kbd>O</kbd>
+              <div class="desc"><strong>Reach/Grab</strong>: Reach hands to catch steel swing bars and rings!</div>
+            </li>
+            <li>
+              <kbd>R</kbd>
+              <div class="desc"><strong>Restart</strong>: Start over at the beginning.</div>
+            </li>
+          </ul>
+          <div class="tip-panel">
+            <strong>🏆 Tricks combo multiplier:</strong> Perform multiple tricks in a single jump before landing! Land upright (feet down) to secure your points. Landing upside down will cause a <strong>wipeout</strong>!
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- On-Screen Controls for Mobile/Touch -->
+    <div class="touch-controls">
+      <!-- Left side: Running -->
+      <div class="touch-left">
+        <button id="btn-spin-left" class="btn-touch btn-spin">◀️ Run L</button>
+        <button id="btn-spin-right" class="btn-touch btn-spin">▶️ Run R</button>
+      </div>
+      <!-- Right side: Poses & Jumps -->
+      <div class="touch-right">
+        <div class="touch-poses">
+          <button id="btn-backflip" class="btn-touch btn-pose">Backflip (Q)</button>
+          <button id="btn-frontflip" class="btn-touch btn-pose">Front/Roll (W)</button>
+          <button id="btn-tuck" class="btn-touch btn-pose">Tuck (R)</button>
+          <button id="btn-front-aerial" class="btn-touch btn-pose">F-Aerial (Y)</button>
+          <button id="btn-front-handspring" class="btn-touch btn-pose">F-Spring (F)</button>
+          <button id="btn-split" class="btn-touch btn-pose">Split/Cart (E)</button>
+          <button id="btn-layout" class="btn-touch btn-pose">Layout/Stand (T)</button>
+          <button id="btn-reach" class="btn-touch btn-pose">Reach/Grab (O)</button>
+          <button id="btn-side-aerial" class="btn-touch btn-pose">S-Aerial (U)</button>
+          <button id="btn-back-handspring" class="btn-touch btn-pose">B-Spring (H)</button>
+        </div>
+        <button id="btn-jump" class="btn-touch btn-jump">🚀 JUMP (Space)</button>
+      </div>
+    </div>
+
+    <!-- Victory Screen Overlay -->
+    <div id="victory-screen" class="victory-overlay">
+      <div class="victory-card">
+        <span class="victory-icon">🏆</span>
+        <h2>VICTORY!</h2>
+        <p>Belle has conquered the Gymnastics Platformer!</p>
+        <div class="victory-stats">
+          <div>Stars Caught: <span id="victory-stars">0</span></div>
+          <div>Total Score: <span id="victory-score">0</span></div>
+        </div>
+        <button id="btn-victory-restart" class="btn-primary-victory">🎉 Play Again!</button>
+      </div>
+    </div>
+
+  </div>
+  
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
