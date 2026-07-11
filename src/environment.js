@@ -165,33 +165,37 @@ export class Environment {
     
     const rand = Math.random();
     
+    const commonPool = [0, 1, 2, 9, 10, 11, 12, 13, 14, 15];
+    const rarePool = [3, 4, 5, 16];
+    const legendaryPool = [6, 7, 8, 17, 18];
+
     if (distance < 100) {
-      // Common only (0, 1, 2)
-      typeId = Math.floor(Math.random() * 3);
+      // Common only
+      typeId = commonPool[Math.floor(Math.random() * commonPool.length)];
     } else if (distance < 300) {
-      // 70% Common, 30% Rare (3, 4, 5)
+      // 70% Common, 30% Rare
       if (rand < 0.70) {
-        typeId = Math.floor(Math.random() * 3);
+        typeId = commonPool[Math.floor(Math.random() * commonPool.length)];
       } else {
-        typeId = 3 + Math.floor(Math.random() * 3);
+        typeId = rarePool[Math.floor(Math.random() * rarePool.length)];
       }
     } else if (distance < 500) {
-      // 60% Common, 30% Rare (3..5), 10% Legendary (6, 7, 8)
+      // 60% Common, 30% Rare, 10% Legendary
       if (rand < 0.60) {
-        typeId = Math.floor(Math.random() * 3);
+        typeId = commonPool[Math.floor(Math.random() * commonPool.length)];
       } else if (rand < 0.90) {
-        typeId = 3 + Math.floor(Math.random() * 3);
+        typeId = rarePool[Math.floor(Math.random() * rarePool.length)];
       } else {
-        typeId = 6 + Math.floor(Math.random() * 3);
+        typeId = legendaryPool[Math.floor(Math.random() * legendaryPool.length)];
       }
     } else {
-      // 45% Common, 35% Rare (3..5), 20% Legendary (6, 7, 8)
+      // 45% Common, 35% Rare, 20% Legendary
       if (rand < 0.45) {
-        typeId = Math.floor(Math.random() * 3);
+        typeId = commonPool[Math.floor(Math.random() * commonPool.length)];
       } else if (rand < 0.80) {
-        typeId = 3 + Math.floor(Math.random() * 3);
+        typeId = rarePool[Math.floor(Math.random() * rarePool.length)];
       } else {
-        typeId = 6 + Math.floor(Math.random() * 3);
+        typeId = legendaryPool[Math.floor(Math.random() * legendaryPool.length)];
       }
     }
 

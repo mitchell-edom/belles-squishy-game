@@ -908,6 +908,134 @@ export class CustomRenderer {
       drawSparkleCross(-7, 8);
     }
 
+    // Helper: Draw volumetric dumpling shapes
+    const drawDumplingShape = (cx, cy, col1, col2) => {
+      let fillVal = col1;
+      if (typeof col1 === 'string') {
+        const dumpGrad = ctx.createRadialGradient(cx - 3, cy - 3, 2, cx, cy, 14);
+        dumpGrad.addColorStop(0, col1);
+        dumpGrad.addColorStop(1, col2);
+        fillVal = dumpGrad;
+      }
+      ctx.fillStyle = fillVal;
+      
+      ctx.beginPath();
+      ctx.moveTo(cx - 13, cy + 9);
+      ctx.bezierCurveTo(cx - 13, cy + 18, cx + 13, cy + 18, cx + 13, cy + 9);
+      ctx.quadraticCurveTo(cx + 12, cy - 2, cx + 6, cy - 11);
+      ctx.lineTo(cx + 4, cy - 8);
+      ctx.lineTo(cx + 1, cy - 12);
+      ctx.lineTo(cx - 1, cy - 8);
+      ctx.lineTo(cx - 4, cy - 12);
+      ctx.lineTo(cx - 6, cy - 8);
+      ctx.quadraticCurveTo(cx - 12, cy - 2, cx - 13, cy + 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Fold lines
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.moveTo(cx - 3, cy - 7);
+      ctx.quadraticCurveTo(cx - 4, cy, cx - 7, cy + 7);
+      ctx.moveTo(cx, cy - 8);
+      ctx.quadraticCurveTo(cx, cy, cx, cy + 8);
+      ctx.moveTo(cx + 3, cy - 7);
+      ctx.quadraticCurveTo(cx + 4, cy, cx + 7, cy + 7);
+      ctx.stroke();
+
+      // Face
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(cx - 4, cy + 3, 1.5, 0, Math.PI*2);
+      ctx.arc(cx + 4, cy + 3, 1.5, 0, Math.PI*2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.0;
+      ctx.beginPath();
+      ctx.arc(cx, cy + 4, 1.8, 0, Math.PI);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.4)';
+      ctx.beginPath();
+      ctx.arc(cx - 7, cy + 5, 1.5, 0, Math.PI*2);
+      ctx.arc(cx + 7, cy + 5, 1.5, 0, Math.PI*2);
+      ctx.fill();
+    };
+
+    // 9. RED DUMPLING SQUISHY
+    if (typeId === 9) {
+      drawDumplingShape(0, -2, '#faa2a2', '#e03131');
+    }
+    // 10. ORANGE DUMPLING SQUISHY
+    else if (typeId === 10) {
+      drawDumplingShape(0, -2, '#ffd8a8', '#f76707');
+    }
+    // 11. YELLOW DUMPLING SQUISHY
+    else if (typeId === 11) {
+      drawDumplingShape(0, -2, '#ffec99', '#f59f00');
+    }
+    // 12. GREEN DUMPLING SQUISHY
+    else if (typeId === 12) {
+      drawDumplingShape(0, -2, '#b2f2bb', '#2b8a3e');
+    }
+    // 13. BLUE DUMPLING SQUISHY
+    else if (typeId === 13) {
+      drawDumplingShape(0, -2, '#a5d8ff', '#1c7ed6');
+    }
+    // 14. PURPLE DUMPLING SQUISHY
+    else if (typeId === 14) {
+      drawDumplingShape(0, -2, '#eebefa', '#ae3ec9');
+    }
+    // 15. PINK DUMPLING SQUISHY
+    else if (typeId === 15) {
+      drawDumplingShape(0, -2, '#ffdeeb', '#f783ac');
+    }
+    // 16. UV LIGHT DUMPLING
+    else if (typeId === 16) {
+      ctx.shadowBlur = 6;
+      ctx.shadowColor = '#d946ef';
+      drawDumplingShape(0, -2, '#f5f3ff', '#6366f1');
+      
+      ctx.fillStyle = '#d946ef';
+      ctx.beginPath();
+      ctx.arc(-8, -4, 1.2, 0, Math.PI*2);
+      ctx.arc(8, -4, 1.2, 0, Math.PI*2);
+      ctx.fill();
+    }
+    // 17. RAINBOW DUMPLING
+    else if (typeId === 17) {
+      const rbGrad = ctx.createLinearGradient(-13, -10, 13, 10);
+      rbGrad.addColorStop(0, '#ff6b6b');
+      rbGrad.addColorStop(0.2, '#fcc419');
+      rbGrad.addColorStop(0.4, '#51cf66');
+      rbGrad.addColorStop(0.6, '#339af0');
+      rbGrad.addColorStop(0.8, '#cc5de8');
+      rbGrad.addColorStop(1.0, '#ff8787');
+      drawDumplingShape(0, -2, rbGrad, rbGrad);
+    }
+    // 18. GOLDEN DUMPLING
+    else if (typeId === 18) {
+      const goldGrad = ctx.createLinearGradient(-13, -10, 13, 10);
+      goldGrad.addColorStop(0, '#fff3bf');
+      goldGrad.addColorStop(0.5, '#f59f00');
+      goldGrad.addColorStop(1, '#fcc419');
+      drawDumplingShape(0, -2, goldGrad, goldGrad);
+
+      const drawSparkleCross = (sx, sy) => {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(sx - 3.5, sy); ctx.lineTo(sx + 3.5, sy);
+        ctx.moveTo(sx, sy - 3.5); ctx.lineTo(sx, sy + 3.5);
+        ctx.stroke();
+      };
+      drawSparkleCross(8, -8);
+      drawSparkleCross(-7, 8);
+    }
+
     ctx.restore();
   }
 

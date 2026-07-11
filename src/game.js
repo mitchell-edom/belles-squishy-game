@@ -19,9 +19,9 @@ export class GymnasticsGame {
     this.highestAlt = 0; // Max Distance reached
     this.flipsCompleted = 0; // Tricks completed
     
-    // Persistent session inventory (tracks 4 skin variants for each of the 9 squishies)
+    // Persistent session inventory (tracks 4 skin variants for each of the 19 squishies)
     this.inventory = {};
-    for (let t = 0; t < 9; t++) {
+    for (let t = 0; t < 19; t++) {
       this.inventory[t] = { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
     }
 
@@ -464,7 +464,17 @@ export class GymnasticsGame {
       'Teenie NeeDohs', 
       'Shaggy NeeDoh', 
       'Archie Axolotl Squish', 
-      'Golden Nice Cube'
+      'Golden Nice Cube',
+      'Red Dumpling Squishy',
+      'Orange Dumpling Squishy',
+      'Yellow Dumpling Squishy',
+      'Green Dumpling Squishy',
+      'Blue Dumpling Squishy',
+      'Purple Dumpling Squishy',
+      'Pink Dumpling Squishy',
+      'UV Light Dumpling',
+      'Rainbow Dumpling',
+      'Golden Dumpling'
     ];
     
     const colors = [
@@ -476,7 +486,17 @@ export class GymnasticsGame {
       '#fb923c', 
       '#eab308', 
       '#fbcfe8', 
-      '#fbbf24'
+      '#fbbf24',
+      '#ff6b6b',
+      '#ff922b',
+      '#ffd43b',
+      '#51cf66',
+      '#339af0',
+      '#cc5de8',
+      '#faa2c1',
+      '#c084fc',
+      '#ff8787',
+      '#fcc419'
     ];
 
     // Fancy variant popup coloring
@@ -553,7 +573,7 @@ export class GymnasticsGame {
       
       // Determine what unlocked toy types are available to scatter
       const collectedTypes = [];
-      for (let t = 0; t < 9; t++) {
+      for (let t = 0; t < 19; t++) {
         const inv = this.inventory[t] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
         const sum = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
         if (sum > 0) collectedTypes.push(t);
@@ -794,7 +814,7 @@ export class GymnasticsGame {
   }
 
   updateCollectionUI() {
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 19; i++) {
       const inv = this.inventory[i] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
       const totalCollected = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
       
@@ -828,7 +848,7 @@ export class GymnasticsGame {
         ctx.save();
         ctx.translate(canvas.width / 2, canvas.height / 2);
         
-        // Match glow shading on Legendary items
+        // Match glow shading on Legendary and Rare items
         if (i === 6) {
           ctx.shadowBlur = 5;
           ctx.shadowColor = '#eab308';
@@ -838,6 +858,15 @@ export class GymnasticsGame {
         } else if (i === 8) {
           ctx.shadowBlur = 10;
           ctx.shadowColor = '#fbbf24';
+        } else if (i === 16) {
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#d946ef';
+        } else if (i === 17) {
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#ff8787';
+        } else if (i === 18) {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = '#fcc419';
         }
 
         this.renderer.drawSquishyToy(ctx, i, 17);
