@@ -1100,8 +1100,8 @@ export class GymnasticsGame {
     // Render large glowing skin aura behind toy
     const skin = this.activeViewerSkin;
     ctx.save();
-    const auraRadius = 85;
-    const auraGrad = ctx.createRadialGradient(0, 0, 15, 0, 0, auraRadius);
+    const auraRadius = 115; // Enlarged glow radius
+    const auraGrad = ctx.createRadialGradient(0, 0, 20, 0, 0, auraRadius);
 
     if (skin === 'glitter') {
       auraGrad.addColorStop(0, 'rgba(244, 63, 94, 0.45)');
@@ -1122,7 +1122,7 @@ export class GymnasticsGame {
       ctx.save();
       ctx.rotate(Date.now() * 0.001);
       ctx.beginPath();
-      ctx.ellipse(0, 0, 70, 20, 0.2, 0, Math.PI*2);
+      ctx.ellipse(0, 0, 100, 30, 0.2, 0, Math.PI*2);
       ctx.stroke();
       ctx.restore();
     } else {
@@ -1136,38 +1136,118 @@ export class GymnasticsGame {
     ctx.fill();
     ctx.restore();
 
-    ctx.shadowBlur = 15;
+    // Characteristics: Draw rising steam curves above Dumplings (9..18)
+    if (this.viewerTypeId >= 9 && this.viewerTypeId <= 18) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = 2.0;
+      for (let s = 0; s < 3; s++) {
+        const steamOffset = (Date.now() * 0.03 + s * 30) % 80;
+        const steamX = -20 + s * 20 + Math.sin(Date.now() * 0.004 + s) * 6;
+        const steamY = -50 - steamOffset;
+        ctx.beginPath();
+        ctx.moveTo(steamX, steamY);
+        ctx.quadraticCurveTo(steamX + 5, steamY - 10, steamX - 5, steamY - 20);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Characteristics: Draw floating neon purple spots rising from UV Light Dumpling (16)
+    if (this.viewerTypeId === 16) {
+      ctx.save();
+      for (let p = 0; p < 4; p++) {
+        const pOffset = (Date.now() * 0.02 + p * 20) % 65;
+        const px = -22 + p * 15 + Math.sin(Date.now() * 0.005 + p) * 4;
+        const py = -40 - pOffset;
+        const alpha = 1.0 - pOffset / 65;
+        ctx.fillStyle = `rgba(217, 70, 239, ${alpha})`;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#d946ef';
+        ctx.beginPath();
+        ctx.arc(px, py, 2.0, 0, Math.PI*2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Characteristics: Draw rotating gold sparkles around Golden Cube (8) or Golden Dumpling (18)
+    if (this.viewerTypeId === 8 || this.viewerTypeId === 18) {
+      ctx.save();
+      ctx.rotate(Date.now() * 0.0012);
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 1.4;
+      const drawSpark = (sx, sy) => {
+        ctx.beginPath();
+        ctx.moveTo(sx - 7, sy); ctx.lineTo(sx + 7, sy);
+        ctx.moveTo(sx, sy - 7); ctx.lineTo(sx, sy + 7);
+        ctx.stroke();
+      };
+      drawSpark(-60, -60);
+      drawSpark(60, 60);
+      drawSpark(-60, 60);
+      drawSpark(60, -60);
+      ctx.restore();
+    }
+
+    ctx.shadowBlur = 18;
     ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
 
-    // Draw the toy at large size (radius 48 = 3.4x size increase)
-    this.renderer.drawSquishyToy(ctx, this.viewerTypeId, 48, angle, skin);
+    // Characteristics: Apply dynamic deform/squish transforms directly to the canvas context
+    ctx.save();
+    let scaleX = 1.0;
+    let scaleY = 1.0;
+    let transY = 0;
+
+    if (this.viewerTypeId === 3) {
+      // Gumdrop slow-rise compression
+      const cycle = (Date.now() * 0.002) % (Math.PI * 2);
+      const factor = Math.sin(cycle);
+      scaleY = 1.0 - Math.max(0, factor) * 0.16;
+      scaleX = 1.0 + Math.max(0, factor) * 0.08;
+      transY = 15 * Math.max(0, factor);
+    } else if (this.viewerTypeId === 19) {
+      // Gummy Bear jello jiggle wobble
+      const cycle = Date.now() * 0.008;
+      scaleY = 1.0 + Math.sin(cycle) * 0.05;
+      scaleX = 1.0 - Math.sin(cycle) * 0.025;
+      transY = -Math.abs(Math.sin(cycle)) * 2;
+    }
+
+    ctx.translate(0, transY);
+    ctx.scale(scaleX, scaleY);
+
+    // Draw the toy at large size (radius 76 = 5.4x size increase)
+    this.renderer.drawSquishyToy(ctx, this.viewerTypeId, 76, angle, skin);
+
+    ctx.restore(); // Restore deform transforms
 
     // Accent overlays for the viewer (like stars, sparkles, chrome line)
     if (skin === 'glitter') {
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.8;
       ctx.beginPath();
-      ctx.moveTo(-30, -30); ctx.lineTo(-20, -30);
-      ctx.moveTo(-25, -35); ctx.lineTo(-25, -25);
-      ctx.moveTo(25, 25); ctx.lineTo(35, 25);
-      ctx.moveTo(30, 20); ctx.lineTo(30, 30);
+      ctx.moveTo(-45, -45); ctx.lineTo(-30, -45);
+      ctx.moveTo(-37, -52); ctx.lineTo(-37, -38);
+      ctx.moveTo(35, 35); ctx.lineTo(50, 35);
+      ctx.moveTo(42, 28); ctx.lineTo(42, 42);
       ctx.stroke();
     } 
     else if (skin === 'metallic') {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.beginPath();
-      ctx.moveTo(-35, -35);
-      ctx.lineTo(-10, -35);
-      ctx.lineTo(-25, 35);
-      ctx.lineTo(-50, 35);
+      ctx.moveTo(-50, -50);
+      ctx.lineTo(-15, -50);
+      ctx.lineTo(-35, 50);
+      ctx.lineTo(-70, 50);
       ctx.closePath();
       ctx.fill();
     }
     else if (skin === 'galaxy') {
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(-22, 22, 2.0, 0, Math.PI*2);
-      ctx.arc(22, -22, 2.0, 0, Math.PI*2);
+      ctx.arc(-35, 35, 2.5, 0, Math.PI*2);
+      ctx.arc(35, -35, 2.5, 0, Math.PI*2);
       ctx.fill();
     }
 

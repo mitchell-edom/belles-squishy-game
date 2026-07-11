@@ -611,28 +611,43 @@ export class CustomRenderer {
 
     // 0. NICE CUBE NEEDOH (Translucent Glassmorphic 3D Blue Cube)
     if (typeId === 0) {
-      let colTop = 'rgba(125, 211, 252, 0.9)';
-      let colFront = 'rgba(56, 189, 248, 0.9)';
-      let colSide = 'rgba(2, 132, 199, 0.9)';
+      let colTopOuter = 'rgba(125, 211, 252, 0.45)';
+      let colFrontOuter = 'rgba(56, 189, 248, 0.45)';
+      let colSideOuter = 'rgba(2, 132, 199, 0.45)';
       
+      let colTopInner = 'rgba(255, 255, 255, 0.85)';
+      let colFrontInner = 'rgba(240, 249, 255, 0.85)';
+      let colSideInner = 'rgba(224, 242, 254, 0.85)';
+
       if (skin === 'glitter') {
-        colTop = 'rgba(251, 207, 232, 0.95)';
-        colFront = 'rgba(244, 114, 182, 0.95)';
-        colSide = 'rgba(219, 39, 119, 0.95)';
+        colTopOuter = 'rgba(251, 207, 232, 0.45)';
+        colFrontOuter = 'rgba(244, 114, 182, 0.45)';
+        colSideOuter = 'rgba(219, 39, 119, 0.45)';
+        colTopInner = 'rgba(244, 114, 182, 0.85)';
+        colFrontInner = 'rgba(219, 39, 119, 0.85)';
+        colSideInner = 'rgba(190, 24, 74, 0.85)';
       } else if (skin === 'metallic') {
-        colTop = 'rgba(248, 250, 252, 0.95)';
-        colFront = 'rgba(226, 232, 240, 0.95)';
-        colSide = 'rgba(148, 163, 184, 0.95)';
+        colTopOuter = 'rgba(248, 250, 252, 0.45)';
+        colFrontOuter = 'rgba(226, 232, 240, 0.45)';
+        colSideOuter = 'rgba(148, 163, 184, 0.45)';
+        colTopInner = 'rgba(241, 245, 249, 0.85)';
+        colFrontInner = 'rgba(203, 213, 225, 0.85)';
+        colSideInner = 'rgba(148, 163, 184, 0.85)';
       } else if (skin === 'galaxy') {
-        colTop = 'rgba(168, 85, 247, 0.95)';
-        colFront = 'rgba(99, 102, 241, 0.95)';
-        colSide = 'rgba(49, 46, 129, 0.95)';
+        colTopOuter = 'rgba(168, 85, 247, 0.45)';
+        colFrontOuter = 'rgba(99, 102, 241, 0.45)';
+        colSideOuter = 'rgba(49, 46, 129, 0.45)';
+        colTopInner = 'rgba(129, 140, 248, 0.85)';
+        colFrontInner = 'rgba(79, 70, 229, 0.85)';
+        colSideInner = 'rgba(49, 46, 129, 0.85)';
       }
 
       if (rotationAngle !== 0) {
-        drawRotatedCube(0, -3, 13, colTop, colFront, colSide, rotationAngle);
+        drawRotatedCube(0, -3, 8.5, colTopInner, colFrontInner, colSideInner, rotationAngle);
+        drawRotatedCube(0, -3, 13, colTopOuter, colFrontOuter, colSideOuter, rotationAngle);
       } else {
-        drawIsometricCube(0, -3, 13, colTop, colFront, colSide);
+        drawIsometricCube(0, -3, 8.5, colTopInner, colFrontInner, colSideInner);
+        drawIsometricCube(0, -3, 13, colTopOuter, colFrontOuter, colSideOuter);
       }
       
       ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
@@ -1082,28 +1097,43 @@ export class CustomRenderer {
     }
     // 8. GOLDEN NICE CUBE (Holographic Chrome Gold Cube)
     else if (typeId === 8) {
-      let colTop = '#fde047';
-      let colFront = '#eab308';
-      let colSide = '#ca8a04';
+      let colTopOuter = 'rgba(254, 240, 138, 0.45)';
+      let colFrontOuter = 'rgba(234, 179, 8, 0.45)';
+      let colSideOuter = 'rgba(202, 138, 4, 0.45)';
+      
+      let colTopInner = '#fde047';
+      let colFrontInner = '#eab308';
+      let colSideInner = '#ca8a04';
 
       if (skin === 'glitter') {
-        colTop = '#fbcfe8';
-        colFront = '#f472b6';
-        colSide = '#be185d';
+        colTopOuter = 'rgba(251, 207, 232, 0.45)';
+        colFrontOuter = 'rgba(244, 114, 182, 0.45)';
+        colSideOuter = 'rgba(219, 39, 119, 0.45)';
+        colTopInner = '#f472b6';
+        colFrontInner = '#be185d';
+        colSideInner = '#9d174d';
       } else if (skin === 'metallic') {
-        colTop = '#ffffff';
-        colFront = '#e2e8f0';
-        colSide = '#94a3b8';
+        colTopOuter = 'rgba(255, 255, 255, 0.45)';
+        colFrontOuter = 'rgba(226, 232, 240, 0.45)';
+        colSideOuter = 'rgba(148, 163, 184, 0.45)';
+        colTopInner = '#ffffff';
+        colFrontInner = '#cbd5e1';
+        colSideInner = '#94a3b8';
       } else if (skin === 'galaxy') {
-        colTop = '#c084fc';
-        colFront = '#818cf8';
-        colSide = '#4f46e5';
+        colTopOuter = 'rgba(168, 85, 247, 0.45)';
+        colFrontOuter = 'rgba(99, 102, 241, 0.45)';
+        colSideOuter = 'rgba(49, 46, 129, 0.45)';
+        colTopInner = '#fbbf24';
+        colFrontInner = '#ca8a04';
+        colSideInner = '#854d0e';
       }
 
       if (rotationAngle !== 0) {
-        drawRotatedCube(0, -3, 13, colTop, colFront, colSide, rotationAngle);
+        drawRotatedCube(0, -3, 8.5, colTopInner, colFrontInner, colSideInner, rotationAngle);
+        drawRotatedCube(0, -3, 13, colTopOuter, colFrontOuter, colSideOuter, rotationAngle);
       } else {
-        drawIsometricCube(0, -3, 13, colTop, colFront, colSide);
+        drawIsometricCube(0, -3, 8.5, colTopInner, colFrontInner, colSideInner);
+        drawIsometricCube(0, -3, 13, colTopOuter, colFrontOuter, colSideOuter);
       }
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
@@ -1408,7 +1438,7 @@ export class CustomRenderer {
       ctx.strokeStyle = strandColor;
       ctx.lineWidth = 0.85;
       for (let a = 0; a < Math.PI*2; a += 0.08) {
-        const lengthMod = 2.5 + Math.sin(a * 14) * 0.8;
+        const lengthMod = 2.5 + Math.sin(a * 14 + Date.now() * 0.008) * 0.9;
         const curAngle = a + rotationAngle;
         const startX = Math.cos(curAngle) * 11.5;
         const startY = Math.sin(curAngle) * 11.5;
