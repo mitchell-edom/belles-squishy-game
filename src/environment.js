@@ -165,56 +165,49 @@ export class Environment {
     
     const rand = Math.random();
     
-    if (distance < 400) {
+    if (distance < 100) {
       // Common only (0, 1, 2)
       typeId = Math.floor(Math.random() * 3);
-    } else if (distance < 800) {
-      // 85% Common, 15% Rare (3, 4)
-      if (rand < 0.85) {
-        typeId = Math.floor(Math.random() * 3);
-      } else {
-        typeId = 3 + Math.floor(Math.random() * 2);
-      }
-    } else if (distance < 1200) {
+    } else if (distance < 300) {
       // 70% Common, 30% Rare (3, 4, 5)
       if (rand < 0.70) {
         typeId = Math.floor(Math.random() * 3);
       } else {
         typeId = 3 + Math.floor(Math.random() * 3);
       }
-    } else if (distance < 1500) {
-      // 60% Common, 30% Rare (3..5), 10% Legendary (6)
+    } else if (distance < 500) {
+      // 60% Common, 30% Rare (3..5), 10% Legendary (6, 7, 8)
       if (rand < 0.60) {
         typeId = Math.floor(Math.random() * 3);
       } else if (rand < 0.90) {
         typeId = 3 + Math.floor(Math.random() * 3);
       } else {
-        typeId = 6;
+        typeId = 6 + Math.floor(Math.random() * 3);
       }
     } else {
-      // 50% Common, 35% Rare (3..5), 15% Legendary (6, 7, 8)
-      if (rand < 0.50) {
+      // 45% Common, 35% Rare (3..5), 20% Legendary (6, 7, 8)
+      if (rand < 0.45) {
         typeId = Math.floor(Math.random() * 3);
-      } else if (rand < 0.85) {
+      } else if (rand < 0.80) {
         typeId = 3 + Math.floor(Math.random() * 3);
       } else {
         typeId = 6 + Math.floor(Math.random() * 3);
       }
     }
 
-    // 2. Select skin variant based on progress distance
+    // 2. Select skin variant based on progress distance (accelerated progression)
     let skin = 'normal';
     const skinRand = Math.random();
     
-    if (distance >= 200 && distance < 500) {
-      if (skinRand < 0.12) skin = 'glitter';
-    } else if (distance >= 500 && distance < 1000) {
-      if (skinRand < 0.15) skin = 'glitter';
-      else if (skinRand < 0.22) skin = 'metallic';
-    } else if (distance >= 1000) {
+    if (distance >= 50 && distance < 150) {
       if (skinRand < 0.20) skin = 'glitter';
-      else if (skinRand < 0.35) skin = 'metallic';
-      else if (skinRand < 0.42) skin = 'galaxy';
+    } else if (distance >= 150 && distance < 300) {
+      if (skinRand < 0.18) skin = 'glitter';
+      else if (skinRand < 0.30) skin = 'metallic';
+    } else if (distance >= 300) {
+      if (skinRand < 0.20) skin = 'glitter';
+      else if (skinRand < 0.38) skin = 'metallic';
+      else if (skinRand < 0.50) skin = 'galaxy';
     }
 
     const squishy = Bodies.circle(x, y, 14, {
