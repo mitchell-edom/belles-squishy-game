@@ -1151,6 +1151,24 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
+      // Draw glitter sparkles inside the dumpling body
+      if (skin === 'glitter') {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cx - 6, cy + 2, 1.2, 0, Math.PI*2);
+        ctx.arc(cx + 6, cy + 6, 1.0, 0, Math.PI*2);
+        ctx.arc(cx + 3, cy - 3, 1.3, 0, Math.PI*2);
+        ctx.arc(cx - 2, cy + 8, 1.0, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        ctx.beginPath();
+        ctx.arc(cx - 8, cy - 2, 0.8, 0, Math.PI*2);
+        ctx.arc(cx + 8, cy + 2, 0.8, 0, Math.PI*2);
+        ctx.arc(cx - 3, cy + 4, 0.9, 0, Math.PI*2);
+        ctx.fill();
+      }
+
       if (faceScaleX >= 0) {
         ctx.save();
         ctx.translate(faceDx, 0);
@@ -1208,9 +1226,7 @@ export class CustomRenderer {
     else if (typeId === 17) { isRainbow = true; }
     else if (typeId === 18) { isGold = true; }
 
-    if (skin === 'glitter') {
-      dCol1 = '#faa2c1'; dCol2 = '#c2255c'; isRainbow = false; isGold = false;
-    } else if (skin === 'metallic') {
+    if (skin === 'metallic') {
       dCol1 = '#f1f5f9'; dCol2 = '#64748b'; isRainbow = false; isGold = false;
     } else if (skin === 'galaxy') {
       dCol1 = '#c084fc'; dCol2 = '#312e81'; isRainbow = false; isGold = false;
