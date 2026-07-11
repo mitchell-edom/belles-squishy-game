@@ -434,6 +434,9 @@ export class GymnasticsGame {
   }
 
   collectStar(starBody) {
+    if (starBody.isCollected) return;
+    starBody.isCollected = true;
+
     const toyType = starBody.toyType !== undefined ? starBody.toyType : 0;
     const toySkin = starBody.toySkin || 'normal';
     
