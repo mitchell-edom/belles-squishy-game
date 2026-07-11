@@ -47,6 +47,10 @@ export class GymnasticsGame {
     this.viewerTiltX = 0;
     this.viewerTiltY = 0;
 
+    // Revive state variables
+    this.reviveCount = 0;
+    this.revivePromptActive = false;
+
     // Store customization choices
     this.currentCustomization = {
       skinColor: '#ffdbac',
@@ -605,8 +609,8 @@ export class GymnasticsGame {
       
       gameAudio.playSplat();
     } else {
-      // Fatal! 0 squishies left, trigger immediate game over
-      this.triggerGameOver();
+      // Fatal! 0 squishies left, prompt revive option
+      this.promptReviveOrGameOver();
     }
   }
 
@@ -709,31 +713,35 @@ export class GymnasticsGame {
     const frameTime = now - this.lastTime;
     this.lastTime = now;
 
-    this.accumulator += Math.min(250, frameTime);
+    if (!this.revivePromptActive) {
+      this.accumulator += Math.min(250, frameTime);
 
-    while (this.accumulator >= this.fixedDelta) {
-      Engine.update(this.engine, this.fixedDelta);
+      while (this.accumulator >= this.fixedDelta) {
+        Engine.update(this.engine, this.fixedDelta);
 
-      this.applyHorizontalMovement();
-      this.updateGymnastTricks();
-      this.gymnast.updateMuscles();
+        this.applyHorizontalMovement();
+        this.updateGymnastTricks();
+        this.gymnast.updateMuscles();
 
-      this.environment.updateLevel(this.gymnast.body.position.x);
+        this.environment.updateLevel(this.gymnast.body.position.x);
 
-      if (this.wipeoutTimer > 0) {
-        this.wipeoutTimer--;
-        if (this.wipeoutTimer <= 0) {
-          this.gymnast.state = 'idle';
-          this.gymnast.visualAngle = 0;
+        if (this.wipeoutTimer > 0) {
+          this.wipeoutTimer--;
+          if (this.wipeoutTimer <= 0) {
+            this.gymnast.state = 'idle';
+            this.gymnast.visualAngle = 0;
+          }
         }
-      }
 
-      // Check fall deaths
-      if (this.gymnast.body.position.y > 1050 && !this.gameWon) {
-        this.triggerGameOver();
-      }
+        // Check fall deaths
+        if (this.gymnast.body.position.y > 1050 && !this.gameWon) {
+          this.promptReviveOrGameOver();
+        }
 
-      this.accumulator -= this.fixedDelta;
+        this.accumulator -= this.fixedDelta;
+      }
+    } else {
+      this.accumulator = 0;
     }
 
     // Distance metrics
@@ -801,6 +809,17 @@ export class GymnasticsGame {
     this.jumpCount = 0;
     this.gameWon = false;
     this.wipeoutTimer = 0;
+
+    // Reset revive variables
+    this.reviveCount = 0;
+    this.revivePromptActive = false;
+    if (this.reviveInterval) {
+      clearInterval(this.reviveInterval);
+    }
+    const reviveModal = document.getElementById('revive-modal');
+    if (reviveModal) {
+      reviveModal.classList.remove('visible');
+    }
 
     const victoryOverlay = document.getElementById('victory-screen');
     if (victoryOverlay) {
@@ -1254,5 +1273,141 @@ export class GymnasticsGame {
     ctx.restore();
 
     requestAnimationFrame(() => this.renderViewer());
+  }
+
+  getPermanentSquishyCount() {
+    let total = 0;
+    for (let t = 0; t < 22; t++) {
+      const inv = this.inventory[t] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
+      total += inv.normal + inv.glitter + inv.metallic + inv.galaxy;
+    }
+    return total;
+  }
+
+  deductPermanentSquishies(amount) {
+    let deducted = 0;
+    const variants = ['normal', 'glitter', 'metallic', 'galaxy'];
+    
+    for (let v of variants) {
+      for (let t = 0; t < 22; t++) {
+        if (this.inventory[t] && this.inventory[t][v] > 0) {
+          const take = Math.min(this.inventory[t][v], amount - deducted);
+          this.inventory[t][v] -= take;
+          deducted += take;
+          if (deducted >= amount) {
+            this.updateCollectionUI();
+            return true;
+          }
+        }
+      }
+    }
+    
+    this.updateCollectionUI();
+    return deducted >= amount;
+  }
+
+  promptReviveOrGameOver() {
+    if (this.gameWon || this.revivePromptActive) return;
+
+    this.reviveCost = Math.pow(2, this.reviveCount + 1);
+    const totalBal = this.getPermanentSquishyCount();
+
+    const modal = document.getElementById('revive-modal');
+    if (modal) {
+      modal.classList.add('visible');
+    }
+
+    document.getElementById('revive-cost-value').textContent = `${this.reviveCost} Squishies`;
+    document.getElementById('revive-balance-value').textContent = totalBal;
+
+    const confirmBtn = document.getElementById('btn-confirm-revive');
+    if (totalBal >= this.reviveCost) {
+      confirmBtn.disabled = false;
+      confirmBtn.style.opacity = '1.0';
+      confirmBtn.style.cursor = 'pointer';
+    } else {
+      confirmBtn.disabled = true;
+      confirmBtn.style.opacity = '0.4';
+      confirmBtn.style.cursor = 'not-allowed';
+    }
+
+    this.revivePromptActive = true;
+    this.reviveTimeLeft = 6.0;
+
+    const progressPath = document.getElementById('timer-progress');
+    const timerText = document.getElementById('revive-timer-text');
+
+    if (this.reviveInterval) {
+      clearInterval(this.reviveInterval);
+    }
+
+    const updateTimer = () => {
+      if (!this.revivePromptActive) {
+        clearInterval(this.reviveInterval);
+        return;
+      }
+      
+      timerText.textContent = Math.ceil(this.reviveTimeLeft);
+      const pct = (this.reviveTimeLeft / 6.0) * 100;
+      if (progressPath) {
+        progressPath.setAttribute('stroke-dasharray', `${pct}, 100`);
+      }
+
+      if (this.reviveTimeLeft <= 0) {
+        clearInterval(this.reviveInterval);
+        this.skipRevive();
+      }
+      this.reviveTimeLeft -= 0.05;
+    };
+
+    this.reviveInterval = setInterval(updateTimer, 50);
+
+    confirmBtn.onclick = () => {
+      clearInterval(this.reviveInterval);
+      this.confirmRevive();
+    };
+
+    const skipBtn = document.getElementById('btn-skip-revive');
+    if (skipBtn) {
+      skipBtn.onclick = () => {
+        clearInterval(this.reviveInterval);
+        this.skipRevive();
+      };
+    }
+  }
+
+  confirmRevive() {
+    this.revivePromptActive = false;
+    const modal = document.getElementById('revive-modal');
+    if (modal) {
+      modal.classList.remove('visible');
+    }
+
+    this.deductPermanentSquishies(this.reviveCost);
+    this.reviveCount++;
+
+    this.starCount = 1;
+    this.gymnast.state = 'run';
+    this.gymnast.visualAngle = 0;
+    this.wipeoutTimer = 0;
+
+    const pos = this.gymnast.body.position;
+    Body.setPosition(this.gymnast.body, { x: pos.x, y: pos.y - 140 });
+    Body.setVelocity(this.gymnast.body, { x: 7.8, y: 0 });
+
+    this.renderer.spawnSparkles(pos.x, pos.y - 140, 25);
+    this.renderer.spawnTextPopup(pos.x, pos.y - 180, "REVIVED!", "#10b981");
+
+    this.canvas.focus();
+  }
+
+  skipRevive() {
+    this.revivePromptActive = false;
+    const modal = document.getElementById('revive-modal');
+    if (modal) {
+      modal.classList.remove('visible');
+    }
+
+    this.triggerGameOver();
   }
 }
