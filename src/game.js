@@ -19,9 +19,9 @@ export class GymnasticsGame {
     this.highestAlt = 0; // Max Distance reached
     this.flipsCompleted = 0; // Tricks completed
     
-    // Persistent session inventory (tracks 4 skin variants for each of the 19 squishies)
+    // Persistent session inventory (tracks 4 skin variants for each of the 22 squishies)
     this.inventory = {};
-    for (let t = 0; t < 19; t++) {
+    for (let t = 0; t < 22; t++) {
       this.inventory[t] = { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
     }
 
@@ -581,7 +581,7 @@ export class GymnasticsGame {
       
       // Determine what unlocked toy types are available to scatter
       const collectedTypes = [];
-      for (let t = 0; t < 19; t++) {
+      for (let t = 0; t < 22; t++) {
         const inv = this.inventory[t] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
         const sum = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
         if (sum > 0) collectedTypes.push(t);
@@ -822,7 +822,7 @@ export class GymnasticsGame {
   }
 
   updateCollectionUI() {
-    for (let i = 0; i < 19; i++) {
+    for (let i = 0; i < 22; i++) {
       const inv = this.inventory[i] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
       const totalCollected = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
       
@@ -885,6 +885,15 @@ export class GymnasticsGame {
         } else if (i === 18) {
           ctx.shadowBlur = 10;
           ctx.shadowColor = '#fcc419';
+        } else if (i === 19) {
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#fdba74';
+        } else if (i === 20) {
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = '#67e8f9';
+        } else if (i === 21) {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = '#34d399';
         }
 
         this.renderer.drawSquishyToy(ctx, i, 17);
@@ -942,7 +951,10 @@ export class GymnasticsGame {
       'Pink Dumpling Squishy',
       'UV Light Dumpling',
       'Rainbow Dumpling',
-      'Golden Dumpling'
+      'Golden Dumpling',
+      'Gummy Bear NeeDoh',
+      'Fuzz Ball NeeDoh',
+      'Colour Change NeeDoh'
     ];
 
     const descriptions = [
@@ -964,7 +976,10 @@ export class GymnasticsGame {
       'A bright pink dumpling squishy. A cute and stylish addition to any squishy collector catalog!',
       'An ultraviolet reactive dumpling that glows with indigo light. Reveals secret glowing speckles under UV lights.',
       'A legendary dumpling that reflects a complete 6-color rainbow gradient. A masterpiece of squishy art!',
-      'A solid gold metallic dumpling. Pure gold plating with dazzling sparkles that rotate as it spins.'
+      'A solid gold metallic dumpling. Pure gold plating with dazzling sparkles that rotate as it spins.',
+      'A cute translucent gummy bear squishy. Made from stretchy, rubbery compound that deforms and bounces!',
+      'A soft fuzz-covered stress ball! Hundreds of micro-fuzzy hair strands make it incredibly soothing to squeeze.',
+      'A magical colour-changing squishy ball! Smoothly shifts from vibrant green to bright pink as it bounces or gets squished.'
     ];
 
     const rarities = [
@@ -986,6 +1001,9 @@ export class GymnasticsGame {
       { text: 'COMMON', class: 'common', points: 150 },
       { text: 'RARE', class: 'rare', points: 300 },
       { text: 'LEGENDARY', class: 'legendary', points: 600 },
+      { text: 'LEGENDARY', class: 'legendary', points: 600 },
+      { text: 'RARE', class: 'rare', points: 300 },
+      { text: 'RARE', class: 'rare', points: 300 },
       { text: 'LEGENDARY', class: 'legendary', points: 600 }
     ];
 

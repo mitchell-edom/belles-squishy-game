@@ -1284,6 +1284,263 @@ export class CustomRenderer {
       }
     }
 
+    // 19. GUMMY BEAR NEEDOH (Translucent bear squishy)
+    else if (typeId === 19) {
+      let color1 = 'rgba(239, 68, 68, 0.85)';
+      let color2 = 'rgba(185, 28, 28, 0.9)';
+      let muzzleColor = '#ffb3b3';
+
+      if (skin === 'glitter') {
+        color1 = 'rgba(244, 63, 94, 0.85)'; color2 = 'rgba(190, 24, 93, 0.9)'; muzzleColor = '#fbcfe8';
+      } else if (skin === 'metallic') {
+        color1 = 'rgba(241, 245, 249, 0.85)'; color2 = 'rgba(100, 116, 139, 0.9)'; muzzleColor = '#e2e8f0';
+      } else if (skin === 'galaxy') {
+        color1 = 'rgba(168, 85, 247, 0.85)'; color2 = 'rgba(76, 29, 149, 0.9)'; muzzleColor = '#ddd6fe';
+      }
+
+      const earLX = -8 * faceScaleX + faceDx;
+      const earRX = 8 * faceScaleX + faceDx;
+      const armLX = -12 * faceScaleX + faceDx;
+      const armRX = 12 * faceScaleX + faceDx;
+      const legLX = -7 * faceScaleX + faceDx;
+      const legRX = 7 * faceScaleX + faceDx;
+
+      ctx.fillStyle = color2;
+      ctx.beginPath();
+      ctx.arc(earLX, -12, 4.5, 0, Math.PI*2);
+      ctx.arc(earRX, -12, 4.5, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      ctx.beginPath();
+      ctx.ellipse(armLX, 1, 4.2, 2.5, -0.4, 0, Math.PI*2);
+      ctx.ellipse(armRX, 1, 4.2, 2.5, 0.4, 0, Math.PI*2);
+      ctx.ellipse(legLX, 13, 4.5, 3.2, 0.2, 0, Math.PI*2);
+      ctx.ellipse(legRX, 13, 4.5, 3.2, -0.2, 0, Math.PI*2);
+      ctx.fill(); ctx.stroke();
+
+      const bearGrad = ctx.createRadialGradient(-3, -4, 2, 0, 1, 15);
+      bearGrad.addColorStop(0, color1);
+      bearGrad.addColorStop(1, color2);
+      ctx.fillStyle = bearGrad;
+
+      ctx.beginPath();
+      ctx.ellipse(0, 1, 10.5, 13.5, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.beginPath();
+        ctx.ellipse(0, 5, 6.5, 5, 0, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = muzzleColor;
+        ctx.beginPath();
+        ctx.ellipse(0, 1, 4.2, 2.8, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(0, -0.8, 1.1, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(0, -0.2); ctx.lineTo(0, 1.2);
+        ctx.arc(-0.8, 1.2, 0.8, 0, Math.PI);
+        ctx.arc(0.8, 1.2, 0.8, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-4, -3, 1.3, 0, Math.PI*2);
+        ctx.arc(4, -3, 1.3, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(244, 63, 94, 0.3)';
+        ctx.beginPath();
+        ctx.arc(-6, -0.5, 1.2, 0, Math.PI*2);
+        ctx.arc(6, -0.5, 1.2, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      if (skin === 'glitter') {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-4, -8, 0.8, 0, Math.PI*2);
+        ctx.arc(5, 5, 0.7, 0, Math.PI*2);
+        ctx.arc(-5, 8, 0.9, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    // 20. FUZZ BALL NEEDOH (Fuzzy stress ball)
+    else if (typeId === 20) {
+      let color1 = '#67e8f9';
+      let color2 = '#0891b2';
+      let strandColor = '#06b6d4';
+
+      if (skin === 'glitter') {
+        color1 = '#fbcfe8'; color2 = '#db2777'; strandColor = '#ec4899';
+      } else if (skin === 'metallic') {
+        color1 = '#f1f5f9'; color2 = '#475569'; strandColor = '#94a3b8';
+      } else if (skin === 'galaxy') {
+        color1 = '#c084fc'; color2 = '#312e81'; strandColor = '#6366f1';
+      }
+
+      const fzGrad = ctx.createRadialGradient(-2, -2, 2, 0, 0, 11.5);
+      fzGrad.addColorStop(0, color1);
+      fzGrad.addColorStop(1, color2);
+      ctx.fillStyle = fzGrad;
+      
+      ctx.beginPath();
+      ctx.arc(0, 0, 11.5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.strokeStyle = strandColor;
+      ctx.lineWidth = 0.85;
+      for (let a = 0; a < Math.PI*2; a += 0.08) {
+        const lengthMod = 2.5 + Math.sin(a * 14) * 0.8;
+        const curAngle = a + rotationAngle;
+        const startX = Math.cos(curAngle) * 11.5;
+        const startY = Math.sin(curAngle) * 11.5;
+        const endX = Math.cos(curAngle) * (11.5 + lengthMod);
+        const endY = Math.sin(curAngle) * (11.5 + lengthMod);
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      }
+
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
+
+        ctx.fillStyle = '#083344';
+        ctx.beginPath();
+        ctx.arc(-4, -1, 1.4, 0, Math.PI*2);
+        ctx.arc(4, -1, 1.4, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#083344';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.arc(0, 0.5, 1.8, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
+      if (skin === 'glitter') {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-3, 3, 0.8, 0, Math.PI*2);
+        ctx.arc(4, -4, 0.8, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+    // 21. COLOUR CHANGE NEEDOH (Green to Pink dynamic shift)
+    else if (typeId === 21) {
+      const timeMs = Date.now();
+      const shift = (Math.sin(timeMs * 0.0035) + 1) / 2;
+
+      let color1, color2;
+      if (skin === 'normal') {
+        const r1 = Math.floor(34 * (1 - shift) + 244 * shift);
+        const g1 = Math.floor(211 * (1 - shift) + 63 * shift);
+        const b1 = Math.floor(129 * (1 - shift) + 94 * shift);
+        color1 = `rgb(${r1}, ${g1}, ${b1})`;
+
+        const r2 = Math.floor(16 * (1 - shift) + 190 * shift);
+        const g2 = Math.floor(120 * (1 - shift) + 24 * shift);
+        const b2 = Math.floor(60 * (1 - shift) + 70 * shift);
+        color2 = `rgb(${r2}, ${g2}, ${b2})`;
+      } else if (skin === 'glitter') {
+        const r1 = Math.floor(244 * (1 - shift) + 253 * shift);
+        const g1 = Math.floor(63 * (1 - shift) + 224 * shift);
+        const b1 = Math.floor(94 * (1 - shift) + 71 * shift);
+        color1 = `rgb(${r1}, ${g1}, ${b1})`;
+
+        const r2 = Math.floor(190 * (1 - shift) + 202 * shift);
+        const g2 = Math.floor(24 * (1 - shift) + 138 * shift);
+        const b2 = Math.floor(74 * (1 - shift) + 4 * shift);
+        color2 = `rgb(${r2}, ${g2}, ${b2})`;
+      } else if (skin === 'metallic') {
+        const r1 = Math.floor(241 * (1 - shift) + 234 * shift);
+        const g1 = Math.floor(245 * (1 - shift) + 179 * shift);
+        const b1 = Math.floor(249 * (1 - shift) + 8 * shift);
+        color1 = `rgb(${r1}, ${g1}, ${b1})`;
+
+        const r2 = Math.floor(148 * (1 - shift) + 161 * shift);
+        const g2 = Math.floor(163 * (1 - shift) + 98 * shift);
+        const b2 = Math.floor(184 * (1 - shift) + 7 * shift);
+        color2 = `rgb(${r2}, ${g2}, ${b2})`;
+      } else if (skin === 'galaxy') {
+        const r1 = Math.floor(99 * (1 - shift) + 219 * shift);
+        const g1 = Math.floor(102 * (1 - shift) + 39 * shift);
+        const b1 = Math.floor(241 * (1 - shift) + 119 * shift);
+        color1 = `rgb(${r1}, ${g1}, ${b1})`;
+
+        const r2 = Math.floor(49 * (1 - shift) + 131 * shift);
+        const g2 = Math.floor(46 * (1 - shift) + 24 * shift);
+        const b2 = Math.floor(129 * (1 - shift) + 86 * shift);
+        color2 = `rgb(${r2}, ${g2}, ${b2})`;
+      }
+
+      const ccGrad = ctx.createRadialGradient(-3, -3, 2, 0, 1, 15);
+      ccGrad.addColorStop(0, color1);
+      ccGrad.addColorStop(1, color2);
+      ctx.fillStyle = ccGrad;
+
+      ctx.beginPath();
+      ctx.ellipse(0, 1, 14, 15, 0, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+
+      if (faceScaleX >= 0) {
+        ctx.save();
+        ctx.translate(faceDx, 0);
+        ctx.scale(faceScaleX, 1);
+
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(-5, -2, 1.6, 0, Math.PI*2);
+        ctx.arc(5, -2, 1.6, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(0, 0.5, 3.0, 0, Math.PI);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.beginPath();
+        ctx.arc(-5.8, -2.8, 0.6, 0, Math.PI*2);
+        ctx.arc(4.2, -2.8, 0.6, 0, Math.PI*2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      if (skin === 'glitter') {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-5, 4, 0.8, 0, Math.PI*2);
+        ctx.arc(5, -4, 0.8, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
     ctx.restore();
   }
 

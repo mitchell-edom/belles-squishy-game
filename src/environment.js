@@ -166,8 +166,8 @@ export class Environment {
     const rand = Math.random();
     
     const commonPool = [0, 1, 2, 9, 10, 11, 12, 13, 14, 15];
-    const rarePool = [3, 4, 5, 16];
-    const legendaryPool = [6, 7, 8, 17, 18];
+    const rarePool = [3, 4, 5, 16, 19, 20];
+    const legendaryPool = [6, 7, 8, 17, 18, 21];
 
     if (distance < 100) {
       // Common only
