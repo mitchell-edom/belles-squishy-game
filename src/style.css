@@ -1216,3 +1216,20 @@ kbd {
   color: #fff;
 }
 
+.revive-multipliers-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 12px 0;
+}
+
+.revive-mult-badge {
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.65rem;
+  color: var(--neon-pink);
+  font-family: var(--font-hud);
+}
+

@@ -49,6 +49,7 @@ export class GymnasticsGame {
 
     // Revive state variables
     this.reviveCount = 0;
+    this.totalDeaths = 0;
     this.revivePromptActive = false;
 
     // Store customization choices
@@ -1309,7 +1310,11 @@ export class GymnasticsGame {
   promptReviveOrGameOver() {
     if (this.gameWon || this.revivePromptActive) return;
 
-    this.reviveCost = Math.pow(2, this.reviveCount + 1);
+    this.totalDeaths++;
+
+    const runMultiplier = Math.pow(2, this.reviveCount);
+    const sessionMultiplier = 1 + (this.totalDeaths - 1) * 0.5;
+    this.reviveCost = Math.floor(2 * runMultiplier * sessionMultiplier);
     const totalBal = this.getPermanentSquishyCount();
 
     const modal = document.getElementById('revive-modal');
@@ -1319,6 +1324,12 @@ export class GymnasticsGame {
 
     document.getElementById('revive-cost-value').textContent = `${this.reviveCost} Squishies`;
     document.getElementById('revive-balance-value').textContent = totalBal;
+
+    const runMultEl = document.getElementById('revive-run-mult');
+    if (runMultEl) runMultEl.textContent = `${runMultiplier}x`;
+
+    const sessMultEl = document.getElementById('revive-session-mult');
+    if (sessMultEl) sessMultEl.textContent = `${sessionMultiplier.toFixed(1)}x`;
 
     const confirmBtn = document.getElementById('btn-confirm-revive');
     if (totalBal >= this.reviveCost) {
