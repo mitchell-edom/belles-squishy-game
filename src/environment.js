@@ -227,6 +227,16 @@ export class Environment {
     Composite.add(this.world, squishy);
   }
 
+  spawnChalkCup(x, y) {
+    const chalk = Bodies.circle(x, y, 16, {
+      isStatic: true,
+      isSensor: true,
+      label: 'chalk-cup'
+    });
+    this.stars.push(chalk); // Leverage stars list for auto-rendering and cleanup
+    Composite.add(this.world, chalk);
+  }
+
   // Called in game loop to infinitely generate segments ahead and delete off-screen assets behind
   updateLevel(playerX) {
     // 1. Generate new content ahead (player is 1200px close to the edge)
@@ -282,125 +292,201 @@ export class Environment {
     const width = 800; // standard segment width
     
     // Pick a random template from 0 to 4
-    const choice = Math.floor(Math.random() * 5);
+    const choice = Math.floor(Math.random() * 8);
+
+    // Randomize offsets for placement and spacing variations
+    const rx = Math.floor((Math.random() - 0.5) * 70); // Horizontal offset
+    const ry = Math.floor((Math.random() - 0.5) * 35); // Vertical/height offset
+    const rw = Math.floor((Math.random() - 0.5) * 50); // Width offset
 
     switch (choice) {
       case 0:
-        // Flat platform with Hurdles/Beams
-        this.createPlatform(startX + width/2, floorY, width, 150, 'mat-ground');
+        // Double Balance Beam (Parallel staggered layout)
+        this.createPlatform(startX + 100, floorY, 200, 150, 'mat-ground');
         
-        // Add vertical obstacle hurdles
-        this.createPlatform(startX + 250, floorY - 40, 20, 80, 'bar-support-post');
-        this.createPlatform(startX + 550, floorY - 50, 16, 100, 'bar-support-post');
+        // Beam 1
+        const beam1W = 160 + rw;
+        this.createPlatform(startX + 260 + rx, floorY - 50 + ry, beam1W, 12, 'balance-beam');
+        this.spawnSquishy(startX + 260 + rx, floorY - 110 + ry);
 
-        // Squishies floating above hurdles
-        this.spawnSquishy(startX + 250, floorY - 120);
-        this.spawnSquishy(startX + 550, floorY - 140);
-        this.spawnSquishy(startX + 400, floorY - 60);
+        // Beam 2 (Higher)
+        const beam2W = 160 - rw;
+        this.createPlatform(startX + 480 + rx, floorY - 110 + ry, beam2W, 12, 'balance-beam');
+        this.spawnSquishy(startX + 480 + rx, floorY - 170 + ry);
+
+        this.createPlatform(startX + 700, floorY, 200, 150, 'mat-ground');
         break;
 
       case 1:
-        // Gap Jumps
-        this.createPlatform(startX + 120, floorY, 240, 150, 'mat-ground');
+        // Tumble Track Spring Floor (Speed Booster Track!)
+        this.createPlatform(startX + width/2, floorY, width, 150, 'mat-ground');
         
-        // Floating platform mats in the air gap
-        this.createPlatform(startX + 400, floorY - 90, 120, 20, 'floating-mat');
-        this.createPlatform(startX + 560, floorY - 180, 100, 20, 'floating-mat');
+        // Tumble Track overlay mat
+        const trackW = 550 + rw;
+        const trackX = startX + 400 + rx;
+        const trackY = floorY - 10;
+        this.createPlatform(trackX, trackY, trackW, 20, 'mat-tumble-track');
 
-        this.createPlatform(startX + 720, floorY, 160, 150, 'mat-ground');
+        // Spawning Chalk Cup booster at the end of the track to vault with speed
+        this.spawnChalkCup(trackX + trackW/2 - 40, floorY - 50);
 
-        // Squishies leading across the jump
-        this.spawnSquishy(startX + 400, floorY - 150);
-        this.spawnSquishy(startX + 560, floorY - 240);
-        this.spawnSquishy(startX + 720, floorY - 80);
+        // Trace of collectibles along the track
+        for (let tx = trackX - trackW/2 + 50; tx < trackX + trackW/2 - 60; tx += 90) {
+          this.spawnSquishy(tx, floorY - 60);
+        }
         break;
 
       case 2:
-        // Trampoline Launch
-        this.createPlatform(startX + 150, floorY, 300, 150, 'mat-ground');
+        // Trampoline High Vault Launch
+        this.createPlatform(startX + 140 + rw/2, floorY, 280 + rw, 150, 'mat-ground');
         
-        // Trampoline at the edge
-        this.createTrampoline(startX + 380, floorY - 15, 120, 14);
+        // Trampoline
+        const trampX = startX + 370 + rx;
+        this.createTrampoline(trampX, floorY - 15, 110, 14);
 
-        // Gap after trampoline
-        this.createPlatform(startX + 680, floorY, 240, 150, 'mat-ground');
+        // Floating mat high in the air
+        this.createPlatform(startX + 560 + rx, floorY - 170 + ry, 110, 20, 'floating-mat');
+        this.spawnSquishy(startX + 560 + rx, floorY - 240 + ry);
 
-        // High arch of squishy collectibles
-        for (let i = 0; i < 5; i++) {
-          const sx = startX + 380 + i * 70;
-          const sy = floorY - 180 - Math.sin((i / 4) * Math.PI) * 140;
-          this.spawnSquishy(sx, sy);
-        }
+        this.createPlatform(startX + 710 - rw/2, floorY, 180 - rw, 150, 'mat-ground');
         break;
 
       case 3:
-        // Swing Bar Gap
-        this.createPlatform(startX + 120, floorY, 240, 150, 'mat-ground');
+        // Uneven Swing Bars Gap
+        this.createPlatform(startX + 120 + rw/2, floorY, 240 + rw, 150, 'mat-ground');
         
-        // Swing high bar centered over the gap
-        const barX = startX + 400;
-        const barY = floorY - 200;
-        
-        this.createPlatform(barX - 60, barY + 140, 6, 280, 'bar-support-post');
-        this.createPlatform(barX + 60, barY + 140, 6, 280, 'bar-support-post');
-        
-        const bar = Bodies.rectangle(barX, barY, 120, 10, {
-          isStatic: true,
-          isSensor: true,
-          label: 'swing-bar'
-        });
-        this.staticBodies.push(bar);
-        Composite.add(this.world, bar);
-
-        // Add grab anchors along the bar
-        for (let offset = -50; offset <= 50; offset += 20) {
-          this.grabPoints.push({
-            body: bar,
-            x: barX + offset,
-            y: barY,
-            radius: 12,
-            label: 'High Bar'
-          });
+        // Bar 1 (Low Bar)
+        const bar1X = startX + 320 + rx;
+        const bar1Y = floorY - 140 + ry;
+        this.createPlatform(bar1X - 45, bar1Y + 90, 6, 180, 'bar-support-post');
+        this.createPlatform(bar1X + 45, bar1Y + 90, 6, 180, 'bar-support-post');
+        const bar1 = Bodies.rectangle(bar1X, bar1Y, 90, 10, { isStatic: true, isSensor: true, label: 'swing-bar' });
+        this.staticBodies.push(bar1);
+        Composite.add(this.world, bar1);
+        for (let o = -30; o <= 30; o += 30) {
+          this.grabPoints.push({ body: bar1, x: bar1X + o, y: bar1Y, radius: 12, label: 'Uneven Low Bar' });
         }
 
-        // Landing platform
-        this.createPlatform(startX + 680, floorY, 240, 150, 'mat-ground');
+        // Bar 2 (High Bar)
+        const bar2X = startX + 500 + rx;
+        const bar2Y = floorY - 240 + ry;
+        this.createPlatform(bar2X - 45, bar2Y + 160, 6, 320, 'bar-support-post');
+        this.createPlatform(bar2X + 45, bar2Y + 160, 6, 320, 'bar-support-post');
+        const bar2 = Bodies.rectangle(bar2X, bar2Y, 90, 10, { isStatic: true, isSensor: true, label: 'swing-bar' });
+        this.staticBodies.push(bar2);
+        Composite.add(this.world, bar2);
+        for (let o = -30; o <= 30; o += 30) {
+          this.grabPoints.push({ body: bar2, x: bar2X + o, y: bar2Y, radius: 12, label: 'Uneven High Bar' });
+        }
 
-        // Squishies below and after swing bar
-        this.spawnSquishy(barX, barY - 40);
-        this.spawnSquishy(startX + 580, floorY - 100);
-        this.spawnSquishy(startX + 680, floorY - 80);
+        this.createPlatform(startX + 690 - rw/2, floorY, 220 - rw, 150, 'mat-ground');
+
+        this.spawnSquishy(bar1X, bar1Y - 40);
+        this.spawnSquishy(bar2X, bar2Y - 40);
         break;
 
       case 4:
         // Slide Mountain Tower & Launch
-        this.createPlatform(startX + 150, floorY, 300, 150, 'mat-ground');
+        this.createPlatform(startX + 140, floorY, 280, 150, 'mat-ground');
         
         // Ramping steps
-        this.createPlatform(startX + 300, floorY - 60, 100, 120, 'mat-platform');
-        this.createPlatform(startX + 400, floorY - 160, 100, 320, 'tower-block');
+        this.createPlatform(startX + 290 + rx, floorY - 60 + ry, 90, 120, 'mat-platform');
+        this.createPlatform(startX + 380 + rx, floorY - 150 + ry, 90, 300, 'tower-block');
 
         // Slide going down
-        const slidePlank = Bodies.rectangle(startX + 580, floorY - 90, 240, 12, {
+        const slidePlank = Bodies.rectangle(startX + 560 + rx, floorY - 80 + ry, 240, 12, {
           isStatic: true,
-          angle: 0.52, // Slide down angle
+          angle: 0.52,
           friction: 0.01,
           label: 'giant-slide'
         });
-        
-        const slideBase = Bodies.rectangle(startX + 700, floorY - 30, 80, 12, {
-          isStatic: true,
-          label: 'slide-lip'
-        });
-
+        const slideBase = Bodies.rectangle(startX + 680 + rx, floorY - 30 + ry, 80, 12, { isStatic: true, label: 'slide-lip' });
         this.staticBodies.push(slidePlank, slideBase);
         Composite.add(this.world, [slidePlank, slideBase]);
 
-        // Collection trace along the slide
-        this.spawnSquishy(startX + 400, floorY - 200);
-        this.spawnSquishy(startX + 520, floorY - 150);
-        this.spawnSquishy(startX + 600, floorY - 100);
-        this.spawnSquishy(startX + 700, floorY - 80);
+        this.spawnSquishy(startX + 380 + rx, floorY - 190 + ry);
+        this.spawnSquishy(startX + 500 + rx, floorY - 140 + ry);
+        this.spawnSquishy(startX + 600 + rx, floorY - 90 + ry);
+        break;
+
+      case 5:
+        // Pommel Horse Vault Step
+        this.createPlatform(startX + 150, floorY, 300, 150, 'mat-ground');
+
+        // Vaulting springboard
+        this.createSpringboard(startX + 270 + rx, floorY - 20, 70, 10);
+
+        // Pommel Horse obstacle
+        const horseX = startX + 440 + rx;
+        const horseY = floorY - 65 + ry;
+        const pommelHorse = Bodies.rectangle(horseX, horseY + 130/2, 80, 130, {
+          isStatic: true,
+          label: 'pommel-horse'
+        });
+        this.staticBodies.push(pommelHorse);
+        Composite.add(this.world, pommelHorse);
+
+        this.createPlatform(startX + 650, floorY, 300, 150, 'mat-ground');
+
+        // Squishies floating over the pommel horse
+        this.spawnSquishy(horseX, horseY - 50);
+        this.spawnSquishy(startX + 620, floorY - 70);
+        break;
+
+      case 6:
+        // Uneven Bar Grid with floating Chalk Grip Cup booster
+        this.createPlatform(startX + 100, floorY, 200, 150, 'mat-ground');
+
+        // High Bar
+        const highBarX = startX + 280 + rx;
+        const highBarY = floorY - 230 + ry;
+        this.createPlatform(highBarX - 40, highBarY + 150, 6, 300, 'bar-support-post');
+        this.createPlatform(highBarX + 40, highBarY + 150, 6, 300, 'bar-support-post');
+        const hb = Bodies.rectangle(highBarX, highBarY, 80, 10, { isStatic: true, isSensor: true, label: 'swing-bar' });
+        this.staticBodies.push(hb);
+        Composite.add(this.world, hb);
+        for (let o = -25; o <= 25; o += 25) {
+          this.grabPoints.push({ body: hb, x: highBarX + o, y: highBarY, radius: 12, label: 'High Bar' });
+        }
+
+        // Floating Chalk Cup in the gap
+        this.spawnChalkCup(startX + 400 + rx, floorY - 170 + ry);
+
+        // Low Bar
+        const lowBarX = startX + 520 + rx;
+        const lowBarY = floorY - 130 + ry;
+        this.createPlatform(lowBarX - 40, lowBarY + 80, 6, 160, 'bar-support-post');
+        this.createPlatform(lowBarX + 40, lowBarY + 80, 6, 160, 'bar-support-post');
+        const lb = Bodies.rectangle(lowBarX, lowBarY, 80, 10, { isStatic: true, isSensor: true, label: 'swing-bar' });
+        this.staticBodies.push(lb);
+        Composite.add(this.world, lb);
+        for (let o = -25; o <= 25; o += 25) {
+          this.grabPoints.push({ body: lb, x: lowBarX + o, y: lowBarY, radius: 12, label: 'Low Bar' });
+        }
+
+        this.createPlatform(startX + 700, floorY, 200, 150, 'mat-ground');
+        break;
+
+      case 7:
+        // Giant Vault Box Stack and trampoline exit
+        this.createPlatform(startX + 100, floorY, 200, 150, 'mat-ground');
+
+        // Vaulting springboard
+        this.createSpringboard(startX + 180 + rx, floorY - 20, 70, 10);
+
+        // Vaulting stack box
+        const vaultBoxH = 220 + ry;
+        this.createPlatform(startX + 350 + rx, floorY - vaultBoxH + 150/2, 100, vaultBoxH, 'tower-block');
+
+        // Trampoline
+        this.createTrampoline(startX + 520 + rx, floorY - 15, 90, 14);
+
+        // Landing mat
+        this.createPlatform(startX + 700, floorY, 200, 150, 'mat-ground');
+
+        // High collectible path
+        this.spawnSquishy(startX + 350 + rx, floorY - vaultBoxH - 40);
+        this.spawnSquishy(startX + 520 + rx, floorY - 160);
         break;
     }
 

@@ -227,16 +227,16 @@ export class CustomRenderer {
   drawParallaxBackground(width, height) {
     this.ctx.save();
     
-    // Fill the gym background wall
-    this.ctx.fillStyle = '#181424'; // Sleek deep gymnasium slate-plum
+    // Fill the arena background wall (Deep Indigo Cosmic Violet)
+    this.ctx.fillStyle = '#0a0612';
     this.ctx.fillRect(this.camera.x - 200, 0, width + 400, height);
 
     const startX = Math.floor((this.camera.x - 200) / 600) * 600;
     const endX = startX + width + 800;
 
-    // Draw horizontal wooden plank wall segments
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
-    this.ctx.lineWidth = 2;
+    // Draw horizontal wall panel lines
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
+    this.ctx.lineWidth = 1;
     for (let wy = 80; wy < 850; wy += 80) {
       this.ctx.beginPath();
       this.ctx.moveTo(this.camera.x - 200, wy);
@@ -244,23 +244,99 @@ export class CustomRenderer {
       this.ctx.stroke();
     }
 
+    // 1. Draw glowing horizontal neon LED strips
+    this.ctx.save();
+    this.ctx.shadowBlur = 8;
+    
+    // Cyan LED strip along bottom wall boundary
+    this.ctx.shadowColor = '#06b6d4';
+    this.ctx.strokeStyle = '#06b6d4';
+    this.ctx.lineWidth = 2.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.camera.x - 200, 785);
+    this.ctx.lineTo(this.camera.x + width + 200, 785);
+    this.ctx.stroke();
+
+    // Hot pink LED strip along top wall boundary
+    this.ctx.shadowColor = '#ec4899';
+    this.ctx.strokeStyle = '#ec4899';
+    this.ctx.lineWidth = 2.5;
+    this.ctx.beginPath();
+    this.ctx.moveTo(this.camera.x - 200, 150);
+    this.ctx.lineTo(this.camera.x + width + 200, 150);
+    this.ctx.stroke();
+    this.ctx.restore();
+
+    // 2. Draw spectator stands & cheering crowd
+    this.ctx.fillStyle = '#110c1c';
+    this.ctx.fillRect(this.camera.x - 200, 480, width + 400, 140);
+    
+    this.ctx.strokeStyle = '#1e162f';
+    this.ctx.lineWidth = 2;
+    for (let ty = 480; ty <= 620; ty += 20) {
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.camera.x - 200, ty);
+      this.ctx.lineTo(this.camera.x + width + 200, ty);
+      this.ctx.stroke();
+    }
+
+    // Cheering crowd heads (bouncing slightly)
+    this.ctx.fillStyle = 'rgba(168, 85, 247, 0.35)'; // Purple crowd glow
+    for (let cx = startX; cx <= endX; cx += 40) {
+      for (let cy = 490; cy < 620; cy += 20) {
+        const bounce = Math.sin(Date.now() * 0.005 + cx * 0.2 + cy * 0.5) * 2;
+        this.ctx.beginPath();
+        this.ctx.arc(cx + (cy % 3) * 12, cy + bounce, 2.5, 0, Math.PI*2);
+        this.ctx.fill();
+      }
+    }
+
+    // 3. Draw sweeping volumetric spotlights
+    const spotX1 = this.camera.x + 300;
+    const spotX2 = this.camera.x + width - 300;
+    const spotY = 0;
+    
+    const drawSpotlight = (sx, sy, color, speedOffset) => {
+      this.ctx.save();
+      const tilt = Math.sin(Date.now() * 0.0008 + speedOffset) * 0.4;
+      
+      this.ctx.translate(sx, sy);
+      this.ctx.rotate(tilt);
+      
+      const coneGrad = this.ctx.createLinearGradient(0, 0, 0, 800);
+      coneGrad.addColorStop(0, color);
+      coneGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      
+      this.ctx.fillStyle = coneGrad;
+      this.ctx.beginPath();
+      this.ctx.moveTo(0, 0);
+      this.ctx.lineTo(-150, 800);
+      this.ctx.lineTo(150, 800);
+      this.ctx.closePath();
+      this.ctx.fill();
+      
+      this.ctx.restore();
+    };
+
+    drawSpotlight(spotX1, spotY, 'rgba(6, 182, 212, 0.12)', 0);      // Neon Cyan cone
+    drawSpotlight(spotX2, spotY, 'rgba(236, 72, 153, 0.09)', Math.PI); // Hot Pink cone
+
     // Draw gymnasium elements in parallax (windows, banners, posters)
     for (let x = startX; x <= endX; x += 600) {
-      // 1. Vertical wall pillars/columns
-      this.ctx.fillStyle = '#100c18';
-      this.ctx.fillRect(x - 20, 0, 40, 900);
+      // Vertical pillars
+      this.ctx.fillStyle = '#08050e';
+      this.ctx.fillRect(x - 15, 0, 30, 900);
       
-      // Pillar highlights
       this.ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-      this.ctx.fillRect(x - 20, 0, 6, 900);
+      this.ctx.fillRect(x - 15, 0, 5, 900);
 
-      // 2. High Arch Windows (alternating with banners)
+      // High Arch Windows alternating with Scoreboards
       const isWindow = (x / 600) % 2 === 0;
       if (isWindow) {
         const winX = x + 300;
-        const winY = 220;
+        const winY = 200;
         const winW = 120;
-        const winH = 260;
+        const winH = 220;
 
         this.ctx.save();
         this.ctx.beginPath();
@@ -270,80 +346,67 @@ export class CustomRenderer {
         this.ctx.closePath();
 
         const skyGrad = this.ctx.createLinearGradient(winX, winY - 60, winX, winY + winH);
-        skyGrad.addColorStop(0, '#c084fc');
-        skyGrad.addColorStop(1, '#6366f1');
+        skyGrad.addColorStop(0, '#a855f7');
+        skyGrad.addColorStop(1, '#1e1b4b');
         this.ctx.fillStyle = skyGrad;
         this.ctx.fill();
 
-        this.ctx.strokeStyle = '#0a0710';
+        this.ctx.strokeStyle = '#050308';
         this.ctx.lineWidth = 3;
         this.ctx.stroke();
 
-        this.ctx.strokeStyle = '#0a0710';
+        this.ctx.strokeStyle = '#050308';
         this.ctx.lineWidth = 1.5;
         this.ctx.beginPath();
         this.ctx.moveTo(winX, winY - 60);
         this.ctx.lineTo(winX, winY + winH);
-        this.ctx.moveTo(winX - winW/2, winY + 80);
-        this.ctx.lineTo(winX + winW/2, winY + 80);
-        this.ctx.moveTo(winX - winW/2, winY + 170);
-        this.ctx.lineTo(winX + winW/2, winY + 170);
+        this.ctx.moveTo(winX - winW/2, winY + 70);
+        this.ctx.lineTo(winX + winW/2, winY + 70);
+        this.ctx.moveTo(winX - winW/2, winY + 140);
+        this.ctx.lineTo(winX + winW/2, winY + 140);
         this.ctx.stroke();
-
-        // Volumetric light beam
-        const beamGrad = this.ctx.createLinearGradient(winX, winY, winX + 80, winY + winH + 200);
-        beamGrad.addColorStop(0, 'rgba(192, 132, 252, 0.12)');
-        beamGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
-        this.ctx.fillStyle = beamGrad;
-        this.ctx.beginPath();
-        this.ctx.moveTo(winX - winW / 2, winY + winH);
-        this.ctx.lineTo(winX - winW / 2 + 100, winY + winH + 320);
-        this.ctx.lineTo(winX + winW / 2 + 200, winY + winH + 320);
-        this.ctx.lineTo(winX + winW / 2, winY + winH);
-        this.ctx.closePath();
-        this.ctx.fill();
 
         this.ctx.restore();
       } else {
-        // Gymnastics Banners
-        const banX = x + 300;
-        const banY = 160;
-        const banW = 100;
-        const banH = 140;
+        // Electronic Scoreboard Screen
+        const boardX = x + 300;
+        const boardY = 220;
+        const boardW = 160;
+        const boardH = 100;
+        
+        // Frame
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
+        this.ctx.strokeStyle = '#334155';
+        this.ctx.lineWidth = 4;
+        this.ctx.strokeRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
+        
+        // Inner Neon border
+        this.ctx.strokeStyle = '#06b6d4';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.strokeRect(boardX - boardW/2 + 4, boardY - boardH/2 + 4, boardW - 8, boardH - 8);
 
-        this.ctx.fillStyle = '#a855f7';
-        this.ctx.beginPath();
-        this.ctx.moveTo(banX - banW/2, banY);
-        this.ctx.lineTo(banX + banW/2, banY);
-        this.ctx.lineTo(banX + banW/2, banY + banH);
-        this.ctx.lineTo(banX, banY + banH - 20);
-        this.ctx.lineTo(banX - banW/2, banY + banH);
-        this.ctx.closePath();
-        this.ctx.fill();
-
-        this.ctx.strokeStyle = '#fde047';
-        this.ctx.lineWidth = 2.5;
-        this.ctx.stroke();
-
+        // Scoreboard texts
         this.ctx.save();
-        this.ctx.fillStyle = '#fde047';
-        this.ctx.font = 'bold 8px Courier New';
+        this.ctx.fillStyle = '#22d3ee';
+        this.ctx.font = 'bold 9px "Courier New", monospace';
         this.ctx.textAlign = 'center';
+        this.ctx.fillText("SQUISHY WORLD ARENA", boardX, boardY - 24);
         
-        const texts = ["SQUISHY", "GYM", "ARENA"];
-        texts.forEach((txt, idx) => {
-          this.ctx.fillText(txt, banX, banY + 45 + idx * 15);
-        });
+        this.ctx.fillStyle = '#10b981'; // green stats
+        this.ctx.font = 'bold 8px "Courier New", monospace';
         
-        this.ctx.beginPath();
-        this.ctx.arc(banX, banY + 25, 4, 0, Math.PI*2);
-        this.ctx.fill();
+        // Dynamic speed estimation based on time/pos
+        const currentSpeed = this.camera ? (Math.sin(Date.now() * 0.001) * 2 + 10) : 10;
+        this.ctx.fillText(`SPEED: ${currentSpeed.toFixed(1)} KM/H`, boardX, boardY - 8);
+        this.ctx.fillText(`PERFORMANCE SCORE: 10.0`, boardX, boardY + 6);
+        this.ctx.fillText("CHAMPIONSHIP 2026", boardX, boardY + 20);
         this.ctx.restore();
       }
 
-      // 3. Hanging Gymnastics Rings (Background decorations)
+      // Hanging rings
       const ringX = x + 150;
-      this.ctx.strokeStyle = '#4b5563';
+      this.ctx.strokeStyle = '#374151';
       this.ctx.lineWidth = 1;
       this.ctx.beginPath();
       this.ctx.moveTo(ringX - 10, 0); this.ctx.lineTo(ringX - 10, 450);
@@ -357,7 +420,7 @@ export class CustomRenderer {
       this.ctx.arc(ringX + 10, 456, 9, 0, Math.PI*2);
       this.ctx.stroke();
 
-      // 4. Squishy Collectible Posters!
+      // Collectible Poster
       const postX = x + 450;
       const postY = 440;
       const postW = 75;
@@ -580,6 +643,49 @@ export class CustomRenderer {
           this.ctx.stroke();
 
           this.ctx.fillRect(vertices[0].x + widthBox/2 - 25, vertices[0].y + py - 18, 50, 8);
+        }
+      }
+      else if (label === 'pommel-horse') {
+        const matH = vertices[2].y - vertices[0].y;
+        const matW = vertices[1].x - vertices[0].x;
+
+        const baseGrad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[0].x, vertices[2].y);
+        baseGrad.addColorStop(0, '#a16207');
+        baseGrad.addColorStop(1, '#451a03');
+        this.ctx.fillStyle = baseGrad;
+        this.ctx.fill();
+        this.ctx.strokeStyle = '#27272a';
+        this.ctx.lineWidth = 2.0;
+        this.ctx.stroke();
+
+        this.ctx.strokeStyle = '#ca8a04';
+        this.ctx.lineWidth = 3.5;
+        this.ctx.beginPath();
+        this.ctx.arc(vertices[0].x + matW/2 - 16, vertices[0].y, 8, Math.PI, 0);
+        this.ctx.stroke();
+        this.ctx.beginPath();
+        this.ctx.arc(vertices[0].x + matW/2 + 16, vertices[0].y, 8, Math.PI, 0);
+        this.ctx.stroke();
+      }
+      else if (label === 'mat-tumble-track') {
+        const matH = vertices[2].y - vertices[0].y;
+        const matW = vertices[1].x - vertices[0].x;
+        
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fill();
+        
+        this.ctx.strokeStyle = '#06b6d4';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.stroke();
+
+        this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+        this.ctx.lineWidth = 2.0;
+        for (let sx = 20; sx < matW - 10; sx += 40) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(vertices[0].x + sx, vertices[0].y + 4);
+          this.ctx.lineTo(vertices[0].x + sx + 8, vertices[0].y + matH/2);
+          this.ctx.lineTo(vertices[0].x + sx, vertices[2].y - 4);
+          this.ctx.stroke();
         }
       }
       else {
@@ -1773,6 +1879,47 @@ export class CustomRenderer {
       
       const bob = Math.sin(Date.now() * 0.003 + x * 0.015) * 5;
       
+      if (squishy.label === 'chalk-cup') {
+        this.ctx.save();
+        this.ctx.translate(x, y + bob);
+        
+        const auraGrad = this.ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
+        auraGrad.addColorStop(0, 'rgba(6, 182, 212, 0.45)');
+        auraGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+        this.ctx.fillStyle = auraGrad;
+        this.ctx.beginPath();
+        this.ctx.arc(0, 0, 24, 0, Math.PI*2);
+        this.ctx.fill();
+
+        this.ctx.fillStyle = '#cbd5e1';
+        this.ctx.strokeStyle = '#475569';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.moveTo(-10, -8);
+        this.ctx.lineTo(10, -8);
+        this.ctx.lineTo(7, 10);
+        this.ctx.lineTo(-7, 10);
+        this.ctx.closePath();
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.beginPath();
+        this.ctx.arc(-4, -8, 6, 0, Math.PI*2);
+        this.ctx.arc(4, -8, 6, 0, Math.PI*2);
+        this.ctx.arc(0, -11, 7, 0, Math.PI*2);
+        this.ctx.closePath();
+        this.ctx.fill();
+        
+        this.ctx.fillStyle = '#06b6d4';
+        this.ctx.font = 'bold 8px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText("C", 0, 4);
+
+        this.ctx.restore();
+        return;
+      }
+      
       this.ctx.save();
       this.ctx.translate(x, y + bob);
       
@@ -2056,14 +2203,19 @@ export class CustomRenderer {
       this.ctx.restore();
     };
 
-    // Foot slippers
+    // Foot slippers (realistic human shape)
     const drawSlipper = (x, y, angle, color) => {
       this.ctx.save();
       this.ctx.translate(x, y);
       this.ctx.rotate(angle);
+      
       this.ctx.fillStyle = color;
       this.ctx.beginPath();
-      this.ctx.ellipse(0, 0, 5, 8, 0.2, 0, Math.PI*2);
+      this.ctx.moveTo(-3, 6);
+      this.ctx.bezierCurveTo(-3, 1, -2, -6, 0, -8);
+      this.ctx.quadraticCurveTo(2.5, -8, 2.5, -6);
+      this.ctx.bezierCurveTo(1.5, -2, 0.5, 2, 0, 5);
+      this.ctx.closePath();
       this.ctx.fill();
       if (!isTrailSilhouette) {
         this.ctx.strokeStyle = '#ffffff';
@@ -2075,6 +2227,24 @@ export class CustomRenderer {
 
     // SKELETAL LINKAGE RESOLUTION ENGINE (Hip/Knee/Ankle & Shoulder/Elbow/Hand)
     const drawSkeletalLimb = (startX, startY, thighAngle, thighLen, thighW1, thighW2, calfAngleOffset, calfLen, calfW1, calfW2, footSlipperColor = null) => {
+      // Slender athletic cartoon proportions conversion
+      let w1 = thighW1;
+      let w2 = thighW2;
+      let w3 = calfW1;
+      let w4 = calfW2;
+      
+      if (thighW1 >= 11) {
+        w1 = 9.0;  // Slender hip
+        w2 = 6.2;  // Knee joint
+        w3 = 6.2;
+        w4 = 4.2;  // Slender ankle
+      } else if (thighW1 >= 7) {
+        w1 = 6.5;  // Shoulder
+        w2 = 4.8;  // Elbow
+        w3 = 4.8;
+        w4 = 3.6;  // Wrist
+      }
+
       // 1. Thigh end joint (Knee)
       const kneeX = startX + Math.sin(thighAngle) * thighLen;
       const kneeY = startY + Math.cos(thighAngle) * thighLen;
@@ -2084,16 +2254,33 @@ export class CustomRenderer {
       const ankleX = kneeX + Math.sin(absoluteCalfAngle) * calfLen;
       const ankleY = kneeY + Math.cos(absoluteCalfAngle) * calfLen;
       
-      // 3. Draw Thigh (tapered capsule)
+      // 3. Draw Thigh with front Quad Muscle curve
       this.ctx.fillStyle = skinColor;
       this.ctx.beginPath();
       const thighAnglePerp = thighAngle + Math.PI/2;
-      const r1 = thighW1 / 2;
-      const r2 = thighW2 / 2;
-      this.ctx.moveTo(startX - Math.sin(thighAnglePerp)*r1, startY - Math.cos(thighAnglePerp)*r1);
+      const r1 = w1 / 2;
+      const r2 = w2 / 2;
+      
+      const hipL_X = startX - Math.sin(thighAnglePerp)*r1;
+      const hipL_Y = startY - Math.cos(thighAnglePerp)*r1;
+      const hipR_X = startX + Math.sin(thighAnglePerp)*r1;
+      const hipR_Y = startY + Math.cos(thighAnglePerp)*r1;
+      
+      const kneeL_X = kneeX - Math.sin(thighAnglePerp)*r2;
+      const kneeL_Y = kneeY - Math.cos(thighAnglePerp)*r2;
+      const kneeR_X = kneeX + Math.sin(thighAnglePerp)*r2;
+      const kneeR_Y = kneeY + Math.cos(thighAnglePerp)*r2;
+
+      this.ctx.moveTo(hipL_X, hipL_Y);
       this.ctx.arc(startX, startY, r1, thighAnglePerp + Math.PI, thighAnglePerp);
-      this.ctx.lineTo(kneeX + Math.sin(thighAnglePerp)*r2, kneeY + Math.cos(thighAnglePerp)*r2);
+      
+      // Front thigh muscle bulge (Quadriceps)
+      const midQuadX = (hipR_X + kneeR_X)/2 + Math.sin(thighAnglePerp) * 2.2;
+      const midQuadY = (hipR_Y + kneeR_Y)/2 + Math.cos(thighAnglePerp) * 2.2;
+      this.ctx.quadraticCurveTo(midQuadX, midQuadY, kneeR_X, kneeR_Y);
+      
       this.ctx.arc(kneeX, kneeY, r2, thighAnglePerp, thighAnglePerp + Math.PI);
+      this.ctx.lineTo(hipL_X, hipL_Y);
       this.ctx.closePath();
       this.ctx.fill();
       if (!isTrailSilhouette) {
@@ -2102,15 +2289,32 @@ export class CustomRenderer {
         this.ctx.stroke();
       }
 
-      // 4. Draw Calf (tapered capsule)
+      // 4. Draw Calf with rear Calf Muscle curve
       this.ctx.beginPath();
       const calfAnglePerp = absoluteCalfAngle + Math.PI/2;
-      const r3 = calfW1 / 2;
-      const r4 = calfW2 / 2;
-      this.ctx.moveTo(kneeX - Math.sin(calfAnglePerp)*r3, kneeY - Math.cos(calfAnglePerp)*r3);
+      const r3 = w3 / 2;
+      const r4 = w4 / 2;
+      
+      const kneeCalfL_X = kneeX - Math.sin(calfAnglePerp)*r3;
+      const kneeCalfL_Y = kneeY - Math.cos(calfAnglePerp)*r3;
+      const kneeCalfR_X = kneeX + Math.sin(calfAnglePerp)*r3;
+      const kneeCalfR_Y = kneeY + Math.cos(calfAnglePerp)*r3;
+      
+      const ankleL_X = ankleX - Math.sin(calfAnglePerp)*r4;
+      const ankleL_Y = ankleY - Math.cos(calfAnglePerp)*r4;
+      const ankleR_X = ankleX + Math.sin(calfAnglePerp)*r4;
+      const ankleR_Y = ankleY + Math.cos(calfAnglePerp)*r4;
+
+      this.ctx.moveTo(kneeCalfL_X, kneeCalfL_Y);
       this.ctx.arc(kneeX, kneeY, r3, calfAnglePerp + Math.PI, calfAnglePerp);
-      this.ctx.lineTo(ankleX + Math.sin(calfAnglePerp)*r4, ankleY + Math.cos(calfAnglePerp)*r4);
+      this.ctx.lineTo(ankleR_X, ankleR_Y);
       this.ctx.arc(ankleX, ankleY, r4, calfAnglePerp, calfAnglePerp + Math.PI);
+      
+      // Rear calf muscle bulge
+      const midCalfX = (ankleL_X + kneeCalfL_X)/2 - Math.sin(calfAnglePerp) * 2.0;
+      const midCalfY = (ankleL_Y + kneeCalfL_Y)/2 - Math.cos(calfAnglePerp) * 2.0;
+      this.ctx.quadraticCurveTo(midCalfX, midCalfY, kneeCalfL_X, kneeCalfL_Y);
+      
       this.ctx.closePath();
       this.ctx.fill();
       if (!isTrailSilhouette) {
@@ -2131,11 +2335,29 @@ export class CustomRenderer {
       }
     };
 
-    // Draw Torso & Head first (z-index baseline)
-    const torsoW1 = 20;
-    const torsoW2 = 14;
-    const torsoH = 28;
-    drawTaperedCapsule(0, -2, torsoW1, torsoW2, torsoH, 0, bodyOutfitColor);
+    // Draw Torso with realistic athletic human cartoon contours
+    this.ctx.fillStyle = bodyOutfitColor;
+    this.ctx.beginPath();
+    // Top chest/shoulders
+    this.ctx.moveTo(-10, -12);
+    this.ctx.lineTo(10, -12);
+    // Chest to waist (tapers inward)
+    this.ctx.bezierCurveTo(7.5, -6, 5.0, 2, 5.5, 6);
+    // Waist to hips (curves outward)
+    this.ctx.bezierCurveTo(6.0, 9, 8.0, 11, 8.5, 13);
+    // Crotch/bottom
+    this.ctx.lineTo(-8.5, 13);
+    // Hips to waist
+    this.ctx.bezierCurveTo(-8.0, 11, -6.0, 9, -5.5, 6);
+    // Waist to chest
+    this.ctx.bezierCurveTo(-5.0, 2, -7.5, -6, -10, -12);
+    this.ctx.closePath();
+    this.ctx.fill();
+    if (!isTrailSilhouette) {
+      this.ctx.strokeStyle = 'rgba(15, 23, 42, 0.12)';
+      this.ctx.lineWidth = 1.2;
+      this.ctx.stroke();
+    }
     
     // Head placement (neck is at y:-14)
     this.drawHead(0, -16, skinColor, hairColor, (state === 'wipeout' ? 'splatted' : (state === 'tuck' ? 'tucked' : 'happy')), isTrailSilhouette);
@@ -2275,6 +2497,15 @@ export class CustomRenderer {
   drawHead(hx, hy, skinColor, hairColor, expression, isTrailSilhouette) {
     this.ctx.save();
     this.ctx.translate(hx, hy);
+
+    // Draw realistic neck connection
+    this.ctx.fillStyle = skinColor;
+    this.ctx.fillRect(-3.0, 5.0, 6.0, 8.0);
+    if (!isTrailSilhouette) {
+      this.ctx.strokeStyle = 'rgba(15, 23, 42, 0.12)';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(-3.0, 5.0, 6.0, 8.0);
+    }
 
     this.ctx.beginPath();
     this.ctx.arc(0, 0, 11, 0, Math.PI * 2);

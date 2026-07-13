@@ -34,6 +34,7 @@ export class GymnasticsGame {
     this.jumpCount = 0; // Double jump tracker
     this.gameWon = false; // Represents the "Game Over" state
     this.wipeoutTimer = 0; // Recovery ticks after a wipeout
+    this.chalkBoostTimer = 0; // Tumble track / chalk speed and score booster timer
 
     // Physics step accumulator
     this.accumulator = 0;
@@ -219,9 +220,18 @@ export class GymnasticsGame {
 
   addCombo(trickName, score) {
     if (!this.activeCombo.some(t => t.name === trickName)) {
-      this.activeCombo.push({ name: trickName, score: score });
+      let finalScore = score;
+      if (this.chalkBoostTimer > 0) {
+        finalScore *= 2;
+      }
+      this.activeCombo.push({ name: trickName, score: finalScore });
       this.renderer.spawnSparkles(this.gymnast.body.position.x, this.gymnast.body.position.y, 8);
-      this.renderer.spawnTextPopup(this.gymnast.body.position.x, this.gymnast.body.position.y, `${trickName}! +${score}`, '#c084fc');
+      
+      const popupText = this.chalkBoostTimer > 0 
+        ? `${trickName}! x2 CHALK +${finalScore}` 
+        : `${trickName}! +${finalScore}`;
+      const popupColor = this.chalkBoostTimer > 0 ? '#06b6d4' : '#c084fc';
+      this.renderer.spawnTextPopup(this.gymnast.body.position.x, this.gymnast.body.position.y, popupText, popupColor);
       gameAudio.playCheer();
     }
   }
@@ -383,6 +393,17 @@ export class GymnasticsGame {
           return;
         }
 
+        const isChalkCollision = labelA === 'chalk-cup' || labelB === 'chalk-cup';
+        if (isChalkCollision) {
+          const chalkBody = labelA === 'chalk-cup' ? pair.bodyA : pair.bodyB;
+          const gymnastBody = labelA === 'chalk-cup' ? pair.bodyB : pair.bodyA;
+          
+          if (gymnastBody.label && gymnastBody.label.startsWith('gymnast')) {
+            this.collectChalkCup(chalkBody);
+          }
+          return;
+        }
+
         const isGymnastBody = (lbl) => lbl === 'gymnast-body';
         if (isGymnastBody(labelA) || isGymnastBody(labelB)) {
           const platformLabel = isGymnastBody(labelA) ? labelB : labelA;
@@ -417,13 +438,22 @@ export class GymnasticsGame {
             return;
           }
 
+          // 4. TUMBLE TRACK SPEED BOOST
+          if (platformLabel.includes('tumble-track')) {
+            this.chalkBoostTimer = 180; // 3 seconds of high-performance speed boost!
+            this.renderer.spawnTextPopup(this.gymnast.body.position.x, this.gymnast.body.position.y, 'TUMBLE SPEED BOOST!', '#06b6d4');
+            gameAudio.playBoing();
+            return;
+          }
+
           // 3. STANDARD MATS / FLOORS / BEAMS
           const isGroundPlatform = (lbl) => 
             lbl.includes('mat') || 
             lbl.includes('floor') || 
             lbl.includes('beam') || 
             lbl.includes('slide') ||
-            lbl.includes('tower');
+            lbl.includes('tower') ||
+            lbl.includes('pommel-horse');
 
           if (isGroundPlatform(platformLabel)) {
             this.handleLanding();
@@ -431,6 +461,22 @@ export class GymnasticsGame {
         }
       });
     });
+  }
+
+  collectChalkCup(chalkBody) {
+    if (chalkBody.isCollected) return;
+    chalkBody.isCollected = true;
+
+    this.chalkBoostTimer = 360; // 6 seconds of chalk grip power!
+    this.starCount = Math.min(this.starCount + 1, 5); 
+    this.jumpCount = 0;
+
+    this.renderer.spawnSparkles(chalkBody.position.x, chalkBody.position.y, 25, '#22d3ee');
+    this.renderer.spawnTextPopup(chalkBody.position.x, chalkBody.position.y - 30, "CHALK GRIP BOOST!", "#06b6d4");
+    gameAudio.playCheer();
+
+    Composite.remove(this.engine.world, chalkBody);
+    this.environment.stars = this.environment.stars.filter(s => s !== chalkBody);
   }
 
   collectStar(starBody) {
@@ -462,7 +508,10 @@ export class GymnasticsGame {
       skinLabel = 'Galaxy ';
     }
 
-    const finalPoints = Math.round(basePoints * multiplier);
+    let finalPoints = Math.round(basePoints * multiplier);
+    if (this.chalkBoostTimer > 0) {
+      finalPoints *= 2;
+    }
     
     // Add to active run health and session catalog counts
     this.starCount++;
@@ -685,7 +734,18 @@ export class GymnasticsGame {
     const distance = Math.max(0, Math.floor(body.position.x / 100));
     const speedMultiplier = 1.0 + Math.min(0.45, distance * 0.00035); // up to +45% speed!
     const baseSpeed = 7.8;
-    const runSpeed = baseSpeed * speedMultiplier;
+    let runSpeed = baseSpeed * speedMultiplier;
+
+    // Apply Chalk/Tumble speed boost
+    if (this.chalkBoostTimer > 0) {
+      runSpeed *= 1.45;
+      this.chalkBoostTimer--;
+      
+      // Spawn white/cyan speed particles behind her
+      if (Math.random() < 0.25) {
+        this.renderer.spawnDust(body.position.x - 10 * Math.sign(body.velocity.x), body.position.y + 12, 3);
+      }
+    }
 
     if (this.wipeoutTimer <= 0) {
       if (this.activeKeys['d'] || this.activeKeys['arrowright']) {
