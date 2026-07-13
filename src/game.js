@@ -1397,11 +1397,41 @@ export class GymnasticsGame {
     this.wipeoutTimer = 0;
 
     const pos = this.gymnast.body.position;
-    Body.setPosition(this.gymnast.body, { x: pos.x, y: pos.y - 140 });
+    const gymnastX = pos.x;
+
+    let bestPlatform = null;
+    let maxPX = -Infinity;
+
+    if (this.environment && this.environment.staticBodies) {
+      for (let body of this.environment.staticBodies) {
+        const lbl = body.label || '';
+        if (lbl === 'mat-ground' || lbl === 'mat-platform' || lbl === 'floating-mat' || lbl === 'tower-block') {
+          if (body.position.x <= gymnastX + 60) {
+            if (body.position.x > maxPX) {
+              maxPX = body.position.x;
+              bestPlatform = body;
+            }
+          }
+        }
+      }
+    }
+
+    let targetX = gymnastX;
+    let targetY = pos.y - 140;
+
+    if (bestPlatform) {
+      targetX = bestPlatform.position.x;
+      targetY = bestPlatform.bounds.min.y - 50;
+    } else {
+      targetX = 400;
+      targetY = 780;
+    }
+
+    Body.setPosition(this.gymnast.body, { x: targetX, y: targetY });
     Body.setVelocity(this.gymnast.body, { x: 7.8, y: 0 });
 
-    this.renderer.spawnSparkles(pos.x, pos.y - 140, 25);
-    this.renderer.spawnTextPopup(pos.x, pos.y - 180, "REVIVED!", "#10b981");
+    this.renderer.spawnSparkles(targetX, targetY, 25);
+    this.renderer.spawnTextPopup(targetX, targetY - 40, "REVIVED!", "#10b981");
 
     this.canvas.focus();
   }
