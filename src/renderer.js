@@ -226,37 +226,183 @@ export class CustomRenderer {
 
   drawParallaxBackground(width, height) {
     this.ctx.save();
-    const envH = this.environment.height;
     
-    const drawScrollHills = (parallaxFactor, baseHeight, amplitude, color) => {
-      this.ctx.fillStyle = color;
+    // Fill the gym background wall
+    this.ctx.fillStyle = '#181424'; // Sleek deep gymnasium slate-plum
+    this.ctx.fillRect(this.camera.x - 200, 0, width + 400, height);
+
+    const startX = Math.floor((this.camera.x - 200) / 600) * 600;
+    const endX = startX + width + 800;
+
+    // Draw horizontal wooden plank wall segments
+    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+    this.ctx.lineWidth = 2;
+    for (let wy = 80; wy < 850; wy += 80) {
       this.ctx.beginPath();
+      this.ctx.moveTo(this.camera.x - 200, wy);
+      this.ctx.lineTo(this.camera.x + width + 200, wy);
+      this.ctx.stroke();
+    }
+
+    // Draw gymnasium elements in parallax (windows, banners, posters)
+    for (let x = startX; x <= endX; x += 600) {
+      // 1. Vertical wall pillars/columns
+      this.ctx.fillStyle = '#100c18';
+      this.ctx.fillRect(x - 20, 0, 40, 900);
       
-      const scrollX = this.camera.x * parallaxFactor;
-      const segmentSize = 400;
-      
-      const startX = Math.floor((this.camera.x - 200) / segmentSize) * segmentSize;
-      const endX = startX + width + segmentSize * 2;
-      
-      this.ctx.moveTo(startX, envH);
-      for (let x = startX; x <= endX; x += 50) {
-        const y = envH - baseHeight + Math.sin((x + scrollX) * 0.001) * amplitude + Math.cos((x + scrollX) * 0.002) * (amplitude/2);
-        this.ctx.lineTo(x, y);
+      // Pillar highlights
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+      this.ctx.fillRect(x - 20, 0, 6, 900);
+
+      // 2. High Arch Windows (alternating with banners)
+      const isWindow = (x / 600) % 2 === 0;
+      if (isWindow) {
+        const winX = x + 300;
+        const winY = 220;
+        const winW = 120;
+        const winH = 260;
+
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.arc(winX, winY, winW / 2, Math.PI, 0);
+        this.ctx.lineTo(winX + winW / 2, winY + winH);
+        this.ctx.lineTo(winX - winW / 2, winY + winH);
+        this.ctx.closePath();
+
+        const skyGrad = this.ctx.createLinearGradient(winX, winY - 60, winX, winY + winH);
+        skyGrad.addColorStop(0, '#c084fc');
+        skyGrad.addColorStop(1, '#6366f1');
+        this.ctx.fillStyle = skyGrad;
+        this.ctx.fill();
+
+        this.ctx.strokeStyle = '#0a0710';
+        this.ctx.lineWidth = 3;
+        this.ctx.stroke();
+
+        this.ctx.strokeStyle = '#0a0710';
+        this.ctx.lineWidth = 1.5;
+        this.ctx.beginPath();
+        this.ctx.moveTo(winX, winY - 60);
+        this.ctx.lineTo(winX, winY + winH);
+        this.ctx.moveTo(winX - winW/2, winY + 80);
+        this.ctx.lineTo(winX + winW/2, winY + 80);
+        this.ctx.moveTo(winX - winW/2, winY + 170);
+        this.ctx.lineTo(winX + winW/2, winY + 170);
+        this.ctx.stroke();
+
+        // Volumetric light beam
+        const beamGrad = this.ctx.createLinearGradient(winX, winY, winX + 80, winY + winH + 200);
+        beamGrad.addColorStop(0, 'rgba(192, 132, 252, 0.12)');
+        beamGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+        this.ctx.fillStyle = beamGrad;
+        this.ctx.beginPath();
+        this.ctx.moveTo(winX - winW / 2, winY + winH);
+        this.ctx.lineTo(winX - winW / 2 + 100, winY + winH + 320);
+        this.ctx.lineTo(winX + winW / 2 + 200, winY + winH + 320);
+        this.ctx.lineTo(winX + winW / 2, winY + winH);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        this.ctx.restore();
+      } else {
+        // Gymnastics Banners
+        const banX = x + 300;
+        const banY = 160;
+        const banW = 100;
+        const banH = 140;
+
+        this.ctx.fillStyle = '#a855f7';
+        this.ctx.beginPath();
+        this.ctx.moveTo(banX - banW/2, banY);
+        this.ctx.lineTo(banX + banW/2, banY);
+        this.ctx.lineTo(banX + banW/2, banY + banH);
+        this.ctx.lineTo(banX, banY + banH - 20);
+        this.ctx.lineTo(banX - banW/2, banY + banH);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        this.ctx.strokeStyle = '#fde047';
+        this.ctx.lineWidth = 2.5;
+        this.ctx.stroke();
+
+        this.ctx.save();
+        this.ctx.fillStyle = '#fde047';
+        this.ctx.font = 'bold 8px Courier New';
+        this.ctx.textAlign = 'center';
+        
+        const texts = ["SQUISHY", "GYM", "ARENA"];
+        texts.forEach((txt, idx) => {
+          this.ctx.fillText(txt, banX, banY + 45 + idx * 15);
+        });
+        
+        this.ctx.beginPath();
+        this.ctx.arc(banX, banY + 25, 4, 0, Math.PI*2);
+        this.ctx.fill();
+        this.ctx.restore();
       }
-      this.ctx.lineTo(endX, envH);
-      this.ctx.closePath();
-      this.ctx.fill();
-    };
 
-    drawScrollHills(0.65, 380, 110, '#0e0b1f');
-    drawScrollHills(0.45, 260, 60, '#15132c');
+      // 3. Hanging Gymnastics Rings (Background decorations)
+      const ringX = x + 150;
+      this.ctx.strokeStyle = '#4b5563';
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(ringX - 10, 0); this.ctx.lineTo(ringX - 10, 450);
+      this.ctx.moveTo(ringX + 10, 0); this.ctx.lineTo(ringX + 10, 450);
+      this.ctx.stroke();
 
-    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    const starOffset = this.camera.x * 0.8;
-    for (let i = 0; i < 20; i++) {
-      const sx = (i * 240 - starOffset) % (width + 400) + this.camera.x - 200;
-      const sy = 100 + Math.sin(i * 1.5) * 80;
-      this.ctx.fillRect(sx, sy, 2, 2);
+      this.ctx.strokeStyle = '#ca8a04';
+      this.ctx.lineWidth = 3.5;
+      this.ctx.beginPath();
+      this.ctx.arc(ringX - 10, 456, 9, 0, Math.PI*2);
+      this.ctx.arc(ringX + 10, 456, 9, 0, Math.PI*2);
+      this.ctx.stroke();
+
+      // 4. Squishy Collectible Posters!
+      const postX = x + 450;
+      const postY = 440;
+      const postW = 75;
+      const postH = 110;
+      
+      const posterType = (Math.floor(x / 600)) % 22;
+
+      const posterGrad = this.ctx.createRadialGradient(postX, postY, 5, postX, postY, postW/2);
+      posterGrad.addColorStop(0, '#2d1e3d');
+      posterGrad.addColorStop(1, '#0e0b16');
+      this.ctx.fillStyle = posterGrad;
+      this.ctx.fillRect(postX - postW/2, postY - postH/2, postW, postH);
+
+      this.ctx.strokeStyle = '#b45309';
+      this.ctx.lineWidth = 4;
+      this.ctx.strokeRect(postX - postW/2, postY - postH/2, postW, postH);
+      
+      this.ctx.strokeStyle = '#fbbf24';
+      this.ctx.lineWidth = 1.0;
+      this.ctx.strokeRect(postX - postW/2 + 2, postY - postH/2 + 2, postW - 4, postH - 4);
+
+      this.ctx.save();
+      this.ctx.translate(postX, postY - 12);
+      const rotationAngle = (Date.now() * 0.0009 + (x * 0.1)) % (Math.PI * 2);
+      this.drawSquishyToy(this.ctx, posterType, 18, rotationAngle, 'normal');
+      this.ctx.restore();
+
+      const names = [
+        'Nice Cube', 'Wendy Frog', 'Cam Cat', 'Gumdrop', 'Connor Cow', 
+        'Teenie NeeDoh', 'Shaggy NeeDoh', 'Archie Axolotl', 'Golden Cube',
+        'Red Dumpling', 'Orange Dumpling', 'Yellow Dumpling', 'Green Dumpling',
+        'Blue Dumpling', 'Purple Dumpling', 'Pink Dumpling', 'UV Dumpling',
+        'Rainbow Dumpling', 'Golden Dumpling', 'Gummy Bear', 'Fuzz Ball', 'Colour Change'
+      ];
+      
+      this.ctx.save();
+      this.ctx.fillStyle = '#fbbf24';
+      this.ctx.font = 'bold 7px sans-serif';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(names[posterType].toUpperCase(), postX, postY + 38);
+      
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      this.ctx.font = 'italic 5px sans-serif';
+      this.ctx.fillText("COLLECTIBLE POSTER", postX, postY + 47);
+      this.ctx.restore();
     }
 
     this.ctx.restore();
@@ -269,6 +415,8 @@ export class CustomRenderer {
       const label = body.label || '';
       const vertices = body.vertices;
 
+      if (label.includes('boundary')) return;
+
       this.ctx.beginPath();
       this.ctx.moveTo(vertices[0].x, vertices[0].y);
       for (let i = 1; i < vertices.length; i++) {
@@ -278,75 +426,88 @@ export class CustomRenderer {
 
       if (label === 'mat-ground') {
         const grad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[0].x, vertices[2].y);
-        grad.addColorStop(0, '#5b21b6'); 
-        grad.addColorStop(1, '#3b0764');
+        grad.addColorStop(0, '#1d4ed8');
+        grad.addColorStop(1, '#1e3a8a');
         this.ctx.fillStyle = grad;
         this.ctx.fill();
 
-        this.ctx.strokeStyle = '#a78bfa';
-        this.ctx.lineWidth = 3;
+        this.ctx.strokeStyle = '#3b82f6';
+        this.ctx.lineWidth = 3.5;
         this.ctx.stroke();
 
-        this.ctx.strokeStyle = 'rgba(167, 139, 250, 0.25)';
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
         this.ctx.lineWidth = 1.5;
         const matWidth = vertices[1].x - vertices[0].x;
-        const segmentCount = Math.floor(matWidth / 120);
+        const segmentCount = Math.floor(matWidth / 150);
         for (let i = 1; i < segmentCount; i++) {
           const sx = vertices[0].x + (matWidth / segmentCount) * i;
           this.ctx.beginPath();
-          this.ctx.moveTo(sx, vertices[0].y + 3);
-          this.ctx.lineTo(sx, vertices[2].y - 3);
+          this.ctx.moveTo(sx, vertices[0].y + 4);
+          this.ctx.lineTo(sx, vertices[2].y - 4);
           this.ctx.stroke();
+
+          this.ctx.fillStyle = '#0f172a';
+          this.ctx.fillRect(sx - 10, vertices[0].y + 24, 20, 6);
         }
 
-        this.ctx.fillStyle = '#1e1b4b';
+        this.ctx.fillStyle = '#fbbf24';
         for (let i = 0; i < segmentCount; i++) {
-          const hx = vertices[0].x + (matWidth / segmentCount) * i + 40;
-          this.ctx.fillRect(hx, vertices[0].y + 12, 14, 4);
+          const hx = vertices[0].x + (matWidth / segmentCount) * i + 50;
+          this.ctx.fillRect(hx, vertices[0].y + 12, 16, 4);
         }
       } 
       else if (label === 'floating-mat' || label === 'mat-platform') {
-        this.ctx.fillStyle = '#1e40af'; 
+        const matH = vertices[2].y - vertices[0].y;
+
+        const grad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[0].x, vertices[2].y);
+        grad.addColorStop(0, '#e11d48');
+        grad.addColorStop(1, '#9f1239');
+        this.ctx.fillStyle = grad;
         this.ctx.fill();
-        this.ctx.strokeStyle = '#60a5fa';
+
+        this.ctx.strokeStyle = '#fda4af';
         this.ctx.lineWidth = 2.5;
         this.ctx.stroke();
 
-        this.ctx.fillStyle = '#fbbf24';
-        this.ctx.fillRect(vertices[0].x + 12, vertices[0].y + 6, 8, 3);
-        this.ctx.fillRect(vertices[1].x - 20, vertices[0].y + 6, 8, 3);
+        this.ctx.fillStyle = '#fef08a';
+        this.ctx.fillRect(vertices[0].x + 8, vertices[0].y + 6, 12, 3);
+        this.ctx.fillRect(vertices[1].x - 20, vertices[0].y + 6, 12, 3);
+
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillRect(vertices[0].x + 6, vertices[0].y + matH/2 - 4, 3, 8);
+        this.ctx.fillRect(vertices[1].x - 9, vertices[0].y + matH/2 - 4, 3, 8);
       }
       else if (label === 'balance-beam') {
         const beamGrad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[0].x, vertices[2].y);
-        beamGrad.addColorStop(0, '#eab308'); 
-        beamGrad.addColorStop(0.5, '#ca8a04');
-        beamGrad.addColorStop(1, '#854d0e');
+        beamGrad.addColorStop(0, '#f59e0b');
+        beamGrad.addColorStop(0.5, '#d97706');
+        beamGrad.addColorStop(1, '#78350f');
         this.ctx.fillStyle = beamGrad;
         this.ctx.fill();
 
-        this.ctx.strokeStyle = '#713f12';
-        this.ctx.lineWidth = 2;
+        this.ctx.strokeStyle = '#451a03';
+        this.ctx.lineWidth = 2.0;
         this.ctx.stroke();
 
         this.ctx.fillStyle = '#475569'; 
         const legH = 900 - vertices[2].y;
-        this.ctx.fillRect(vertices[0].x + 35, vertices[2].y, 10, legH);
-        this.ctx.fillRect(vertices[1].x - 45, vertices[2].y, 10, legH);
+        this.ctx.fillRect(vertices[0].x + 30, vertices[2].y, 12, legH);
+        this.ctx.fillRect(vertices[1].x - 42, vertices[2].y, 12, legH);
         
-        this.ctx.fillStyle = '#1e293b';
-        this.ctx.fillRect(vertices[0].x + 20, 900 - 10, 40, 10);
-        this.ctx.fillRect(vertices[1].x - 60, 900 - 10, 40, 10);
+        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillRect(vertices[0].x + 16, 900 - 12, 40, 12);
+        this.ctx.fillRect(vertices[1].x - 56, 900 - 12, 40, 12);
       }
       else if (label === 'swing-bar') {
         const barGrad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[0].x, vertices[2].y);
         barGrad.addColorStop(0, '#f1f5f9');
-        barGrad.addColorStop(0.5, '#94a3b8');
-        barGrad.addColorStop(1, '#475569');
+        barGrad.addColorStop(0.5, '#cbd5e1');
+        barGrad.addColorStop(1, '#64748b');
         this.ctx.fillStyle = barGrad;
         this.ctx.fill();
         
-        this.ctx.strokeStyle = '#1e293b';
-        this.ctx.lineWidth = 1;
+        this.ctx.strokeStyle = '#334155';
+        this.ctx.lineWidth = 1.2;
         this.ctx.stroke();
       }
       else if (label === 'bar-support-post') {
@@ -362,13 +523,13 @@ export class CustomRenderer {
         const notchStep = 25;
         for (let ny = 15; ny < height - 10; ny += notchStep) {
           this.ctx.beginPath();
-          this.ctx.arc(vertices[0].x + 3, vertices[0].y + ny, 2, 0, Math.PI*2);
+          this.ctx.arc(vertices[0].x + 3, vertices[0].y + ny, 2.5, 0, Math.PI*2);
           this.ctx.fill();
         }
 
         if (vertices[2].y >= 890) {
           this.ctx.fillStyle = '#334155';
-          this.ctx.fillRect(vertices[0].x - 12, 900 - 12, 30, 12);
+          this.ctx.fillRect(vertices[0].x - 14, 900 - 14, 34, 14);
         }
       }
       else if (label === 'giant-slide') {
@@ -382,23 +543,51 @@ export class CustomRenderer {
         this.ctx.lineWidth = 4;
         this.ctx.stroke();
       }
-      else if (label.includes('tower')) {
-        const grad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[2].x, vertices[2].y);
-        grad.addColorStop(0, '#111827');
-        grad.addColorStop(1, '#030712');
-        this.ctx.fillStyle = grad;
+      else if (label.includes('tower') || label.includes('platform')) {
+        const padHeight = 24;
+        const widthBox = vertices[1].x - vertices[0].x;
+        const heightBox = vertices[2].y - vertices[0].y;
+
+        const baseGrad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y + padHeight, vertices[0].x, vertices[2].y);
+        baseGrad.addColorStop(0, '#d97706');
+        baseGrad.addColorStop(1, '#78350f');
+        this.ctx.fillStyle = baseGrad;
         this.ctx.fill();
-        
-        this.ctx.strokeStyle = '#3f3f46';
-        this.ctx.lineWidth = 2.5;
+
+        const cushionGrad = this.ctx.createLinearGradient(vertices[0].x, vertices[0].y, vertices[0].x, vertices[0].y + padHeight);
+        cushionGrad.addColorStop(0, '#ec4899');
+        cushionGrad.addColorStop(1, '#be185d');
+        this.ctx.fillStyle = cushionGrad;
+        this.ctx.beginPath();
+        this.ctx.moveTo(vertices[0].x, vertices[0].y);
+        this.ctx.lineTo(vertices[1].x, vertices[1].y);
+        this.ctx.lineTo(vertices[1].x, vertices[1].y + padHeight);
+        this.ctx.lineTo(vertices[0].x, vertices[0].y + padHeight);
+        this.ctx.closePath();
+        this.ctx.fill();
+
+        this.ctx.strokeStyle = '#fbcfe8';
+        this.ctx.lineWidth = 1.8;
         this.ctx.stroke();
+
+        this.ctx.fillStyle = '#451a03';
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        this.ctx.lineWidth = 1.0;
+        for (let py = padHeight + 35; py < heightBox - 15; py += 45) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(vertices[0].x, vertices[0].y + py);
+          this.ctx.lineTo(vertices[1].x, vertices[0].y + py);
+          this.ctx.stroke();
+
+          this.ctx.fillRect(vertices[0].x + widthBox/2 - 25, vertices[0].y + py - 18, 50, 8);
+        }
       }
       else {
-        this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillStyle = '#1e1b4b';
         this.ctx.fill();
       }
     });
-
+    
     this.ctx.restore();
   }
 
