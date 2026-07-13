@@ -363,7 +363,7 @@ export class CustomRenderer {
       const postW = 75;
       const postH = 110;
       
-      const posterType = (Math.floor(x / 600)) % 22;
+      const posterType = ((Math.floor(x / 600) % 22) + 22) % 22;
 
       const posterGrad = this.ctx.createRadialGradient(postX, postY, 5, postX, postY, postW/2);
       posterGrad.addColorStop(0, '#2d1e3d');
