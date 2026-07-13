@@ -244,26 +244,31 @@ export class CustomRenderer {
       this.ctx.stroke();
     }
 
-    // 1. Draw glowing horizontal neon LED strips
+    // 1. Draw glowing horizontal neon LED strips (using fast double-draw instead of slow shadowBlur)
     this.ctx.save();
-    this.ctx.shadowBlur = 8;
     
-    // Cyan LED strip along bottom wall boundary
-    this.ctx.shadowColor = '#06b6d4';
-    this.ctx.strokeStyle = '#06b6d4';
-    this.ctx.lineWidth = 2.5;
+    // Bottom Cyan LED line
+    this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
+    this.ctx.lineWidth = 10;
     this.ctx.beginPath();
     this.ctx.moveTo(this.camera.x - 200, 785);
     this.ctx.lineTo(this.camera.x + width + 200, 785);
     this.ctx.stroke();
 
-    // Hot pink LED strip along top wall boundary
-    this.ctx.shadowColor = '#ec4899';
-    this.ctx.strokeStyle = '#ec4899';
+    this.ctx.strokeStyle = '#22d3ee';
     this.ctx.lineWidth = 2.5;
+    this.ctx.stroke();
+
+    // Top Hot Pink LED line
+    this.ctx.strokeStyle = 'rgba(236, 72, 153, 0.2)';
+    this.ctx.lineWidth = 10;
     this.ctx.beginPath();
     this.ctx.moveTo(this.camera.x - 200, 150);
     this.ctx.lineTo(this.camera.x + width + 200, 150);
+    this.ctx.stroke();
+
+    this.ctx.strokeStyle = '#f472b6';
+    this.ctx.lineWidth = 2.5;
     this.ctx.stroke();
     this.ctx.restore();
 
@@ -321,151 +326,163 @@ export class CustomRenderer {
     drawSpotlight(spotX1, spotY, 'rgba(6, 182, 212, 0.12)', 0);      // Neon Cyan cone
     drawSpotlight(spotX2, spotY, 'rgba(236, 72, 153, 0.09)', Math.PI); // Hot Pink cone
 
+    // Setup viewport culling boundaries for parallax loop elements
+    const camL = this.camera.x - 200;
+    const camR = this.camera.x + width + 200;
+
     // Draw gymnasium elements in parallax (windows, banners, posters)
     for (let x = startX; x <= endX; x += 600) {
       // Vertical pillars
-      this.ctx.fillStyle = '#08050e';
-      this.ctx.fillRect(x - 15, 0, 30, 900);
-      
-      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-      this.ctx.fillRect(x - 15, 0, 5, 900);
+      if (x >= camL && x <= camR) {
+        this.ctx.fillStyle = '#08050e';
+        this.ctx.fillRect(x - 15, 0, 30, 900);
+        
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+        this.ctx.fillRect(x - 15, 0, 5, 900);
+      }
 
       // High Arch Windows alternating with Scoreboards
-      const isWindow = (x / 600) % 2 === 0;
-      if (isWindow) {
-        const winX = x + 300;
-        const winY = 200;
-        const winW = 120;
-        const winH = 220;
+      if (x + 300 >= camL && x + 300 <= camR) {
+        const isWindow = (x / 600) % 2 === 0;
+        if (isWindow) {
+          const winX = x + 300;
+          const winY = 200;
+          const winW = 120;
+          const winH = 220;
 
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.arc(winX, winY, winW / 2, Math.PI, 0);
-        this.ctx.lineTo(winX + winW / 2, winY + winH);
-        this.ctx.lineTo(winX - winW / 2, winY + winH);
-        this.ctx.closePath();
+          this.ctx.save();
+          this.ctx.beginPath();
+          this.ctx.arc(winX, winY, winW / 2, Math.PI, 0);
+          this.ctx.lineTo(winX + winW / 2, winY + winH);
+          this.ctx.lineTo(winX - winW / 2, winY + winH);
+          this.ctx.closePath();
 
-        const skyGrad = this.ctx.createLinearGradient(winX, winY - 60, winX, winY + winH);
-        skyGrad.addColorStop(0, '#a855f7');
-        skyGrad.addColorStop(1, '#1e1b4b');
-        this.ctx.fillStyle = skyGrad;
-        this.ctx.fill();
+          const skyGrad = this.ctx.createLinearGradient(winX, winY - 60, winX, winY + winH);
+          skyGrad.addColorStop(0, '#a855f7');
+          skyGrad.addColorStop(1, '#1e1b4b');
+          this.ctx.fillStyle = skyGrad;
+          this.ctx.fill();
 
-        this.ctx.strokeStyle = '#050308';
-        this.ctx.lineWidth = 3;
-        this.ctx.stroke();
+          this.ctx.strokeStyle = '#050308';
+          this.ctx.lineWidth = 3;
+          this.ctx.stroke();
 
-        this.ctx.strokeStyle = '#050308';
-        this.ctx.lineWidth = 1.5;
-        this.ctx.beginPath();
-        this.ctx.moveTo(winX, winY - 60);
-        this.ctx.lineTo(winX, winY + winH);
-        this.ctx.moveTo(winX - winW/2, winY + 70);
-        this.ctx.lineTo(winX + winW/2, winY + 70);
-        this.ctx.moveTo(winX - winW/2, winY + 140);
-        this.ctx.lineTo(winX + winW/2, winY + 140);
-        this.ctx.stroke();
+          this.ctx.strokeStyle = '#050308';
+          this.ctx.lineWidth = 1.5;
+          this.ctx.beginPath();
+          this.ctx.moveTo(winX, winY - 60);
+          this.ctx.lineTo(winX, winY + winH);
+          this.ctx.moveTo(winX - winW/2, winY + 70);
+          this.ctx.lineTo(winX + winW/2, winY + 70);
+          this.ctx.moveTo(winX - winW/2, winY + 140);
+          this.ctx.lineTo(winX + winW/2, winY + 140);
+          this.ctx.stroke();
 
-        this.ctx.restore();
-      } else {
-        // Electronic Scoreboard Screen
-        const boardX = x + 300;
-        const boardY = 220;
-        const boardW = 160;
-        const boardH = 100;
-        
-        // Frame
-        this.ctx.fillStyle = '#0f172a';
-        this.ctx.fillRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
-        this.ctx.strokeStyle = '#334155';
-        this.ctx.lineWidth = 4;
-        this.ctx.strokeRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
-        
-        // Inner Neon border
-        this.ctx.strokeStyle = '#06b6d4';
-        this.ctx.lineWidth = 1.5;
-        this.ctx.strokeRect(boardX - boardW/2 + 4, boardY - boardH/2 + 4, boardW - 8, boardH - 8);
+          this.ctx.restore();
+        } else {
+          // Electronic Scoreboard Screen
+          const boardX = x + 300;
+          const boardY = 220;
+          const boardW = 160;
+          const boardH = 100;
+          
+          // Frame
+          this.ctx.fillStyle = '#0f172a';
+          this.ctx.fillRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
+          this.ctx.strokeStyle = '#334155';
+          this.ctx.lineWidth = 4;
+          this.ctx.strokeRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
+          
+          // Inner Neon border
+          this.ctx.strokeStyle = '#06b6d4';
+          this.ctx.lineWidth = 1.5;
+          this.ctx.strokeRect(boardX - boardW/2 + 4, boardY - boardH/2 + 4, boardW - 8, boardH - 8);
 
-        // Scoreboard texts
-        this.ctx.save();
-        this.ctx.fillStyle = '#22d3ee';
-        this.ctx.font = 'bold 9px "Courier New", monospace';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText("SQUISHY WORLD ARENA", boardX, boardY - 24);
-        
-        this.ctx.fillStyle = '#10b981'; // green stats
-        this.ctx.font = 'bold 8px "Courier New", monospace';
-        
-        // Dynamic speed estimation based on time/pos
-        const currentSpeed = this.camera ? (Math.sin(Date.now() * 0.001) * 2 + 10) : 10;
-        this.ctx.fillText(`SPEED: ${currentSpeed.toFixed(1)} KM/H`, boardX, boardY - 8);
-        this.ctx.fillText(`PERFORMANCE SCORE: 10.0`, boardX, boardY + 6);
-        this.ctx.fillText("CHAMPIONSHIP 2026", boardX, boardY + 20);
-        this.ctx.restore();
+          // Scoreboard texts
+          this.ctx.save();
+          this.ctx.fillStyle = '#22d3ee';
+          this.ctx.font = 'bold 9px "Courier New", monospace';
+          this.ctx.textAlign = 'center';
+          this.ctx.fillText("SQUISHY WORLD ARENA", boardX, boardY - 24);
+          
+          this.ctx.fillStyle = '#10b981'; // green stats
+          this.ctx.font = 'bold 8px "Courier New", monospace';
+          
+          // Dynamic speed estimation based on time/pos
+          const currentSpeed = this.camera ? (Math.sin(Date.now() * 0.001) * 2 + 10) : 10;
+          this.ctx.fillText(`SPEED: ${currentSpeed.toFixed(1)} KM/H`, boardX, boardY - 8);
+          this.ctx.fillText(`PERFORMANCE SCORE: 10.0`, boardX, boardY + 6);
+          this.ctx.fillText("CHAMPIONSHIP 2026", boardX, boardY + 20);
+          this.ctx.restore();
+        }
       }
 
       // Hanging rings
-      const ringX = x + 150;
-      this.ctx.strokeStyle = '#374151';
-      this.ctx.lineWidth = 1;
-      this.ctx.beginPath();
-      this.ctx.moveTo(ringX - 10, 0); this.ctx.lineTo(ringX - 10, 450);
-      this.ctx.moveTo(ringX + 10, 0); this.ctx.lineTo(ringX + 10, 450);
-      this.ctx.stroke();
+      if (x + 150 >= camL && x + 150 <= camR) {
+        const ringX = x + 150;
+        this.ctx.strokeStyle = '#374151';
+        this.ctx.lineWidth = 1;
+        this.ctx.beginPath();
+        this.ctx.moveTo(ringX - 10, 0); this.ctx.lineTo(ringX - 10, 450);
+        this.ctx.moveTo(ringX + 10, 0); this.ctx.lineTo(ringX + 10, 450);
+        this.ctx.stroke();
 
-      this.ctx.strokeStyle = '#ca8a04';
-      this.ctx.lineWidth = 3.5;
-      this.ctx.beginPath();
-      this.ctx.arc(ringX - 10, 456, 9, 0, Math.PI*2);
-      this.ctx.arc(ringX + 10, 456, 9, 0, Math.PI*2);
-      this.ctx.stroke();
+        this.ctx.strokeStyle = '#ca8a04';
+        this.ctx.lineWidth = 3.5;
+        this.ctx.beginPath();
+        this.ctx.arc(ringX - 10, 456, 9, 0, Math.PI*2);
+        this.ctx.arc(ringX + 10, 456, 9, 0, Math.PI*2);
+        this.ctx.stroke();
+      }
 
       // Collectible Poster
-      const postX = x + 450;
-      const postY = 440;
-      const postW = 75;
-      const postH = 110;
-      
-      const posterType = ((Math.floor(x / 600) % 22) + 22) % 22;
+      if (x + 450 >= camL && x + 450 <= camR) {
+        const postX = x + 450;
+        const postY = 440;
+        const postW = 75;
+        const postH = 110;
+        
+        const posterType = ((Math.floor(x / 600) % 22) + 22) % 22;
 
-      const posterGrad = this.ctx.createRadialGradient(postX, postY, 5, postX, postY, postW/2);
-      posterGrad.addColorStop(0, '#2d1e3d');
-      posterGrad.addColorStop(1, '#0e0b16');
-      this.ctx.fillStyle = posterGrad;
-      this.ctx.fillRect(postX - postW/2, postY - postH/2, postW, postH);
+        const posterGrad = this.ctx.createRadialGradient(postX, postY, 5, postX, postY, postW/2);
+        posterGrad.addColorStop(0, '#2d1e3d');
+        posterGrad.addColorStop(1, '#0e0b16');
+        this.ctx.fillStyle = posterGrad;
+        this.ctx.fillRect(postX - postW/2, postY - postH/2, postW, postH);
 
-      this.ctx.strokeStyle = '#b45309';
-      this.ctx.lineWidth = 4;
-      this.ctx.strokeRect(postX - postW/2, postY - postH/2, postW, postH);
-      
-      this.ctx.strokeStyle = '#fbbf24';
-      this.ctx.lineWidth = 1.0;
-      this.ctx.strokeRect(postX - postW/2 + 2, postY - postH/2 + 2, postW - 4, postH - 4);
+        this.ctx.strokeStyle = '#b45309';
+        this.ctx.lineWidth = 4;
+        this.ctx.strokeRect(postX - postW/2, postY - postH/2, postW, postH);
+        
+        this.ctx.strokeStyle = '#fbbf24';
+        this.ctx.lineWidth = 1.0;
+        this.ctx.strokeRect(postX - postW/2 + 2, postY - postH/2 + 2, postW - 4, postH - 4);
 
-      this.ctx.save();
-      this.ctx.translate(postX, postY - 12);
-      const rotationAngle = (Date.now() * 0.0009 + (x * 0.1)) % (Math.PI * 2);
-      this.drawSquishyToy(this.ctx, posterType, 18, rotationAngle, 'normal');
-      this.ctx.restore();
+        this.ctx.save();
+        this.ctx.translate(postX, postY - 12);
+        const rotationAngle = (Date.now() * 0.0009 + (x * 0.1)) % (Math.PI * 2);
+        this.drawSquishyToy(this.ctx, posterType, 18, rotationAngle, 'normal');
+        this.ctx.restore();
 
-      const names = [
-        'Nice Cube', 'Wendy Frog', 'Cam Cat', 'Gumdrop', 'Connor Cow', 
-        'Teenie NeeDoh', 'Shaggy NeeDoh', 'Archie Axolotl', 'Golden Cube',
-        'Red Dumpling', 'Orange Dumpling', 'Yellow Dumpling', 'Green Dumpling',
-        'Blue Dumpling', 'Purple Dumpling', 'Pink Dumpling', 'UV Dumpling',
-        'Rainbow Dumpling', 'Golden Dumpling', 'Gummy Bear', 'Fuzz Ball', 'Colour Change'
-      ];
-      
-      this.ctx.save();
-      this.ctx.fillStyle = '#fbbf24';
-      this.ctx.font = 'bold 7px sans-serif';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(names[posterType].toUpperCase(), postX, postY + 38);
-      
-      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      this.ctx.font = 'italic 5px sans-serif';
-      this.ctx.fillText("COLLECTIBLE POSTER", postX, postY + 47);
-      this.ctx.restore();
+        const names = [
+          'Nice Cube', 'Wendy Frog', 'Cam Cat', 'Gumdrop', 'Connor Cow', 
+          'Teenie NeeDoh', 'Shaggy NeeDoh', 'Archie Axolotl', 'Golden Cube',
+          'Red Dumpling', 'Orange Dumpling', 'Yellow Dumpling', 'Green Dumpling',
+          'Blue Dumpling', 'Purple Dumpling', 'Pink Dumpling', 'UV Dumpling',
+          'Rainbow Dumpling', 'Golden Dumpling', 'Gummy Bear', 'Fuzz Ball', 'Colour Change'
+        ];
+        
+        this.ctx.save();
+        this.ctx.fillStyle = '#fbbf24';
+        this.ctx.font = 'bold 7px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(names[posterType].toUpperCase(), postX, postY + 38);
+        
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        this.ctx.font = 'italic 5px sans-serif';
+        this.ctx.fillText("COLLECTIBLE POSTER", postX, postY + 47);
+        this.ctx.restore();
+      }
     }
 
     this.ctx.restore();
@@ -473,12 +490,20 @@ export class CustomRenderer {
 
   drawStaticEnvironment() {
     this.ctx.save();
+    const viewL = this.camera.x - 120;
+    const viewR = this.camera.x + this.ctx.canvas.width + 120;
     
     this.environment.staticBodies.forEach(body => {
       const label = body.label || '';
-      const vertices = body.vertices;
-
       if (label.includes('boundary')) return;
+
+      const minX = body.bounds.min.x;
+      const maxX = body.bounds.max.x;
+
+      // Frustum culling check
+      if (maxX < viewL || minX > viewR) return;
+
+      const vertices = body.vertices;
 
       this.ctx.beginPath();
       this.ctx.moveTo(vertices[0].x, vertices[0].y);
@@ -699,8 +724,13 @@ export class CustomRenderer {
 
   drawInteractiveEnvironment() {
     this.ctx.save();
+    const viewL = this.camera.x - 120;
+    const viewR = this.camera.x + this.ctx.canvas.width + 120;
 
     this.environment.interactiveBodies.forEach(body => {
+      // Frustum culling check
+      if (body.bounds.max.x < viewL || body.bounds.min.x > viewR) return;
+
       const v = body.vertices;
       const x = body.position.x;
       const y = body.position.y;
@@ -1872,8 +1902,14 @@ export class CustomRenderer {
   // DETAILED GLOWING RADIAL AURAS IN COLLECTIBLES
   drawStars() {
     this.ctx.save();
+    const viewL = this.camera.x - 120;
+    const viewR = this.camera.x + this.ctx.canvas.width + 120;
+
     this.environment.stars.forEach(squishy => {
       const { x, y } = squishy.position;
+
+      // Frustum culling check
+      if (x < viewL || x > viewR) return;
       const typeId = squishy.toyType || 0;
       const skin = squishy.toySkin || 'normal';
       
@@ -2766,6 +2802,11 @@ export class CustomRenderer {
   drawParticles() {
     this.ctx.save();
 
+    // Cap standard particles to prevent growth stutters
+    if (this.particles.length > 150) {
+      this.particles.splice(0, this.particles.length - 150);
+    }
+
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       
@@ -2788,27 +2829,29 @@ export class CustomRenderer {
       p.life++;
       p.alpha = 1 - (p.life / p.maxLife);
 
-      this.ctx.save();
-      this.ctx.globalAlpha = p.alpha;
-      this.ctx.fillStyle = p.color;
-
       if (p.type === 'confetti') {
+        this.ctx.save();
+        this.ctx.globalAlpha = p.alpha;
+        this.ctx.fillStyle = p.color;
         this.ctx.translate(p.x, p.y);
         this.ctx.rotate(p.rotation);
         this.ctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+        this.ctx.restore();
       } else {
+        this.ctx.globalAlpha = p.alpha;
+        this.ctx.fillStyle = p.color;
         this.ctx.beginPath();
         this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         this.ctx.fill();
       }
-
-      this.ctx.restore();
 
       if (p.life >= p.maxLife) {
         this.particles.splice(i, 1);
       }
     }
 
+    // Restore default alpha
+    this.ctx.globalAlpha = 1.0;
     this.ctx.restore();
   }
 

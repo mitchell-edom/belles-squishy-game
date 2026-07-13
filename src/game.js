@@ -990,16 +990,49 @@ export class GymnasticsGame {
       this.highScore = this.score;
     }
 
-    const setVal = (id, val) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = val;
-    };
+    // Lazy cache DOM elements and stats tracker to avoid per-frame DOM queries/writes
+    if (!this.hudElements) {
+      this.hudElements = {
+        score: document.getElementById('val-score'),
+        highScore: document.getElementById('val-highscore'),
+        stars: document.getElementById('val-stars'),
+        maxAlt: document.getElementById('val-maxalt'),
+        flips: document.getElementById('val-flips')
+      };
+      this.lastHUDStats = { score: -1, highScore: -1, starCount: -1, highestAlt: -1, flipsCompleted: -1 };
+    }
 
-    setVal('val-score', this.score);
-    setVal('val-highscore', this.highScore);
-    setVal('val-stars', this.starCount);
-    setVal('val-maxalt', `${this.highestAlt}m`);
-    setVal('val-flips', this.flipsCompleted);
+    const stats = this.lastHUDStats;
+    if (
+      this.score === stats.score &&
+      this.highScore === stats.highScore &&
+      this.starCount === stats.starCount &&
+      this.highestAlt === stats.highestAlt &&
+      this.flipsCompleted === stats.flipsCompleted
+    ) {
+      return; // Skip DOM writes if values have not changed
+    }
+
+    if (this.score !== stats.score && this.hudElements.score) {
+      this.hudElements.score.textContent = this.score;
+      stats.score = this.score;
+    }
+    if (this.highScore !== stats.highScore && this.hudElements.highScore) {
+      this.hudElements.highScore.textContent = this.highScore;
+      stats.highScore = this.highScore;
+    }
+    if (this.starCount !== stats.starCount && this.hudElements.stars) {
+      this.hudElements.stars.textContent = this.starCount;
+      stats.starCount = this.starCount;
+    }
+    if (this.highestAlt !== stats.highestAlt && this.hudElements.maxAlt) {
+      this.hudElements.maxAlt.textContent = `${this.highestAlt}m`;
+      stats.highestAlt = this.highestAlt;
+    }
+    if (this.flipsCompleted !== stats.flipsCompleted && this.hudElements.flips) {
+      this.hudElements.flips.textContent = this.flipsCompleted;
+      stats.flipsCompleted = this.flipsCompleted;
+    }
   }
 
   resizeCanvas() {
