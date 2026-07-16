@@ -539,7 +539,10 @@ export class GymnasticsGame {
       'Pink Dumpling Squishy',
       'UV Light Dumpling',
       'Rainbow Dumpling',
-      'Golden Dumpling'
+      'Golden Dumpling',
+      'Gummy Bear NeeDoh',
+      'Fuzz Ball NeeDoh',
+      'Colour Change NeeDoh'
     ];
     
     const colors = [
@@ -561,7 +564,10 @@ export class GymnasticsGame {
       '#faa2c1',
       '#c084fc',
       '#ff8787',
-      '#fcc419'
+      '#fcc419',
+      '#ef4444',
+      '#06b6d4',
+      '#a855f7'
     ];
 
     // Fancy variant popup coloring
