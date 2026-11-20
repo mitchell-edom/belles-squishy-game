@@ -1,6 +1,7 @@
 class AudioSynthesizer {
   constructor() {
     this.ctx = null;
+    this.noiseBuffer = null;
     this.enabled = true;
     this.userInteracted = false;
   }
@@ -10,8 +11,17 @@ class AudioSynthesizer {
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this.userInteracted = true;
+
+      // Pre-generate a reusable 1-second white-noise buffer once to avoid per-sound allocations
+      const bufferSize = this.ctx.sampleRate;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      this.noiseBuffer = buffer;
     } catch (e) {
-      console.warn("Web Audio API is not supported in this browser:", e);
+      console.warn('Web Audio API is not supported in this browser:', e);
     }
   }
 
@@ -19,14 +29,20 @@ class AudioSynthesizer {
     this.enabled = enabled;
   }
 
-  playBoing() {
-    if (!this.enabled || !this.userInteracted) return;
+  getContext() {
+    if (!this.enabled || !this.userInteracted) return null;
     this.init();
     const ctx = this.ctx;
-    if (!ctx) return;
+    if (!ctx) return null;
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }
+    return ctx;
+  }
+
+  playBoing() {
+    const ctx = this.getContext();
+    if (!ctx) return;
 
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -47,27 +63,14 @@ class AudioSynthesizer {
   }
 
   playSplat() {
-    if (!this.enabled || !this.userInteracted) return;
-    this.init();
-    const ctx = this.ctx;
-    if (!ctx) return;
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
+    const ctx = this.getContext();
+    if (!ctx || !this.noiseBuffer) return;
 
     const now = ctx.currentTime;
     const duration = 0.35;
-    
-    // Create buffer for squishy crash noise
-    const bufferSize = ctx.sampleRate * duration;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
 
     const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this.noiseBuffer;
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -87,13 +90,8 @@ class AudioSynthesizer {
   }
 
   playGrab() {
-    if (!this.enabled || !this.userInteracted) return;
-    this.init();
-    const ctx = this.ctx;
+    const ctx = this.getContext();
     if (!ctx) return;
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
 
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -114,27 +112,14 @@ class AudioSynthesizer {
   }
 
   playCheer() {
-    if (!this.enabled || !this.userInteracted) return;
-    this.init();
-    const ctx = this.ctx;
-    if (!ctx) return;
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-    }
+    const ctx = this.getContext();
+    if (!ctx || !this.noiseBuffer) return;
 
     const now = ctx.currentTime;
     const duration = 0.6;
-    
-    // Synthesize cheerleader sound using filtered noise
-    const bufferSize = ctx.sampleRate * duration;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1;
-    }
 
     const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
+    noise.buffer = this.noiseBuffer;
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
@@ -148,7 +133,6 @@ class AudioSynthesizer {
     gain.gain.linearRampToValueAtTime(0.12, now + 0.1);
     gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-    // Add a high pitched beep osc for a cute sound
     const beep = ctx.createOscillator();
     beep.type = 'sine';
     beep.frequency.setValueAtTime(523.25, now); // C5

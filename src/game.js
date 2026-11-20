@@ -3,8 +3,18 @@ import { Gymnast } from './gymnast';
 import { Environment } from './environment';
 import { CustomRenderer } from './renderer';
 import { gameAudio } from './audio';
+import { TOY_CATALOG, SKIN_CONFIG } from './toys';
 
 const { Engine, Events, Composite, Vector, Body } = Matter;
+
+const DEFAULT_CUSTOMIZATION = {
+  skinColor: '#ffdbac',
+  hairColor: '#e0a96d',
+  hairStyle: 'pony',
+  outfitColor: '#db2777',
+  hat: 'none',
+  hasCape: false
+};
 
 export class GymnasticsGame {
   constructor(canvasId) {
@@ -36,9 +46,12 @@ export class GymnasticsGame {
     this.wipeoutTimer = 0; // Recovery ticks after a wipeout
     this.chalkBoostTimer = 0; // Tumble track / chalk speed and score booster timer
 
-    // Physics step accumulator
+    // Physics step accumulator & animation frame handles
     this.accumulator = 0;
     this.fixedDelta = 1000 / 60; // 16.666 ms
+    this.rafId = null;
+    this.viewerRafId = null;
+    this.collectionCanvasesInitialized = false;
 
     // 3D Squishy Viewer state
     this.viewerActive = false;
@@ -47,6 +60,8 @@ export class GymnasticsGame {
     this.viewerRotation = 0;
     this.viewerTiltX = 0;
     this.viewerTiltY = 0;
+    this.viewerCanvas = null;
+    this.viewerCtx = null;
 
     // Revive state variables
     this.reviveCount = 0;
@@ -54,14 +69,7 @@ export class GymnasticsGame {
     this.revivePromptActive = false;
 
     // Store customization choices
-    this.currentCustomization = {
-      skinColor: '#ffdbac',
-      hairColor: '#e0a96d',
-      hairStyle: 'pony',
-      outfitColor: '#db2777',
-      hat: 'none',
-      hasCape: false
-    };
+    this.currentCustomization = { ...DEFAULT_CUSTOMIZATION };
 
     this.initPhysics();
     this.initGame();
@@ -73,7 +81,16 @@ export class GymnasticsGame {
     window.addEventListener('resize', () => this.resizeCanvas());
     
     this.lastTime = performance.now();
-    this.loop();
+    this.startLoop();
+  }
+
+  startLoop() {
+    if (this.rafId !== null) {
+      cancelAnimationFrame(this.rafId);
+      this.rafId = null;
+    }
+    this.lastTime = performance.now();
+    this.rafId = requestAnimationFrame(() => this.loop());
   }
 
   initPhysics() {
@@ -102,9 +119,12 @@ export class GymnasticsGame {
     window.addEventListener('keydown', (e) => {
       if (this.gameWon) return;
 
+      // Do not hijack keyboard controls while interacting with form inputs
+      const tag = e.target?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
       const key = e.key.toLowerCase();
       this.activeKeys[key] = true;
-
 
       // Jump action
       if (e.key === ' ' || e.key === 'ArrowUp') {
@@ -112,8 +132,8 @@ export class GymnasticsGame {
         this.triggerJump();
       }
 
-      // Reset shortcut (Enter key)
-      if (e.key === 'Enter') {
+      // Reset shortcut (Enter key, ignore if pressing a button)
+      if (e.key === 'Enter' && tag !== 'BUTTON') {
         this.resetLevel();
       }
     });
@@ -121,6 +141,11 @@ export class GymnasticsGame {
     window.addEventListener('keyup', (e) => {
       const key = e.key.toLowerCase();
       this.activeKeys[key] = false;
+    });
+
+    // Clear held keys if window loses focus to prevent stuck movement
+    window.addEventListener('blur', () => {
+      this.activeKeys = {};
     });
 
     // Mobile / Touch controls hooking
@@ -485,104 +510,30 @@ export class GymnasticsGame {
 
     const toyType = starBody.toyType !== undefined ? starBody.toyType : 0;
     const toySkin = starBody.toySkin || 'normal';
-    
-    // 1. Points scale based on rarity: Common=150, Rare=300, Legendary=600
-    let basePoints = 150;
-    if (toyType >= 3 && toyType <= 5) {
-      basePoints = 300;
-    } else if (toyType >= 6) {
-      basePoints = 600;
-    }
+    const toy = TOY_CATALOG[toyType] || TOY_CATALOG[0];
+    const skinInfo = SKIN_CONFIG[toySkin] || SKIN_CONFIG.normal;
 
-    // 2. Skin multipliers: glitter=1.5x, metallic=2x, galaxy=3x
-    let multiplier = 1.0;
-    let skinLabel = '';
-    if (toySkin === 'glitter') {
-      multiplier = 1.5;
-      skinLabel = 'Glitter ';
-    } else if (toySkin === 'metallic') {
-      multiplier = 2.0;
-      skinLabel = 'Metallic ';
-    } else if (toySkin === 'galaxy') {
-      multiplier = 3.0;
-      skinLabel = 'Galaxy ';
-    }
-
-    let finalPoints = Math.round(basePoints * multiplier);
+    // Points scale accurately by rarity (Common=150, Rare=300, Legendary=600) and skin multiplier
+    let finalPoints = Math.round(toy.points * skinInfo.multiplier);
     if (this.chalkBoostTimer > 0) {
       finalPoints *= 2;
     }
-    
+
     // Add to active run health and session catalog counts
     this.starCount++;
     this.inventory[toyType][toySkin]++;
     this.score += finalPoints;
-    
+
     gameAudio.playCheer();
 
-    const names = [
-      'Nice Cube NeeDoh', 
-      'Wendy Frog Squish', 
-      'Cam Cat Squish', 
-      'NeeDoh Gumdrop', 
-      'Connor Cow Squish', 
-      'Teenie NeeDohs', 
-      'Shaggy NeeDoh', 
-      'Archie Axolotl Squish', 
-      'Golden Nice Cube',
-      'Red Dumpling Squishy',
-      'Orange Dumpling Squishy',
-      'Yellow Dumpling Squishy',
-      'Green Dumpling Squishy',
-      'Blue Dumpling Squishy',
-      'Purple Dumpling Squishy',
-      'Pink Dumpling Squishy',
-      'UV Light Dumpling',
-      'Rainbow Dumpling',
-      'Golden Dumpling',
-      'Gummy Bear NeeDoh',
-      'Fuzz Ball NeeDoh',
-      'Colour Change NeeDoh'
-    ];
-    
-    const colors = [
-      '#38bdf8', 
-      '#4ade80', 
-      '#fef3c7', 
-      '#f472b6', 
-      '#ffffff', 
-      '#fb923c', 
-      '#eab308', 
-      '#fbcfe8', 
-      '#fbbf24',
-      '#ff6b6b',
-      '#ff922b',
-      '#ffd43b',
-      '#51cf66',
-      '#339af0',
-      '#cc5de8',
-      '#faa2c1',
-      '#c084fc',
-      '#ff8787',
-      '#fcc419',
-      '#ef4444',
-      '#06b6d4',
-      '#a855f7'
-    ];
-
-    // Fancy variant popup coloring
-    let popupColor = colors[toyType];
-    if (toySkin === 'glitter') popupColor = '#f472b6'; // pink glitter text
-    else if (toySkin === 'metallic') popupColor = '#cbd5e1'; // chrome silver text
-    else if (toySkin === 'galaxy') popupColor = '#c084fc'; // purple galaxy text
-
+    const popupColor = skinInfo.popupColor || toy.color;
     const pos = starBody.position;
     this.renderer.spawnSparkles(pos.x, pos.y, 14);
-    this.renderer.spawnTextPopup(pos.x, pos.y, `${skinLabel}${names[toyType]}! +${finalPoints}`, popupColor);
+    this.renderer.spawnTextPopup(pos.x, pos.y, `${skinInfo.label}${toy.name}! +${finalPoints}`, popupColor);
 
     this.environment.respawnStar(starBody);
     this.updateHUD();
-    this.updateCollectionUI();
+    this.updateCollectionCard(toyType);
   }
 
   handleLanding() {
@@ -826,7 +777,9 @@ export class GymnasticsGame {
     this.updateHUD();
 
     if (!this.gameWon) {
-      requestAnimationFrame(() => this.loop());
+      this.rafId = requestAnimationFrame(() => this.loop());
+    } else {
+      this.rafId = null;
     }
   }
 
@@ -879,6 +832,7 @@ export class GymnasticsGame {
     this.jumpCount = 0;
     this.gameWon = false;
     this.wipeoutTimer = 0;
+    this.chalkBoostTimer = 0;
 
     // Reset revive variables
     this.reviveCount = 0;
@@ -897,10 +851,7 @@ export class GymnasticsGame {
     }
 
     this.updateHUD();
-    this.updateCollectionUI();
-    
-    this.lastTime = performance.now();
-    this.loop();
+    this.startLoop();
   }
 
   updateCustomization(field, val) {
@@ -910,84 +861,90 @@ export class GymnasticsGame {
     }
   }
 
-  updateCollectionUI() {
-    for (let i = 0; i < 22; i++) {
-      const inv = this.inventory[i] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
-      const totalCollected = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
-      
-      const card = document.getElementById(`card-${i}`);
-      if (!card) continue;
+  resetCustomization() {
+    this.currentCustomization = { ...DEFAULT_CUSTOMIZATION };
+    if (this.gymnast) {
+      this.gymnast.customization = { ...DEFAULT_CUSTOMIZATION };
+    }
+    return this.currentCustomization;
+  }
 
-      const countEl = card.querySelector('.card-count');
-      if (countEl) countEl.textContent = `Collected: ${totalCollected}`;
+  // Draw static 3D toy thumbnails once lazily when collection modal opens
+  initCollectionCanvases() {
+    if (this.collectionCanvasesInitialized || !this.renderer) return;
+    this.collectionCanvasesInitialized = true;
 
-      if (totalCollected > 0 && card.classList.contains('locked')) {
-        card.classList.remove('locked');
-      }
+    const glowMap = {
+      6: [5, '#eab308'],
+      7: [6, '#fecdd3'],
+      8: [10, '#fbbf24'],
+      16: [6, '#d946ef'],
+      17: [8, '#ff8787'],
+      18: [10, '#fcc419'],
+      19: [6, '#fdba74'],
+      20: [6, '#67e8f9'],
+      21: [10, '#34d399']
+    };
 
-      if (totalCollected > 0) {
-        card.style.cursor = 'pointer';
-        card.onclick = () => {
-          this.openSquishyViewer(i);
-        };
-      } else {
-        card.style.cursor = 'default';
-        card.onclick = null;
-      }
-
-      // Unlock individual skin badges
-      const normalBadge = card.querySelector('.skin-badge.normal');
-      const glitterBadge = card.querySelector('.skin-badge.glitter');
-      const metallicBadge = card.querySelector('.skin-badge.metallic');
-      const galaxyBadge = card.querySelector('.skin-badge.galaxy');
-
-      if (normalBadge && inv.normal > 0) normalBadge.classList.remove('locked');
-      if (glitterBadge && inv.glitter > 0) glitterBadge.classList.remove('locked');
-      if (metallicBadge && inv.metallic > 0) metallicBadge.classList.remove('locked');
-      if (galaxyBadge && inv.galaxy > 0) galaxyBadge.classList.remove('locked');
-
-      // Draw matching premium 3D vector graphics on the collection card canvas
+    for (let i = 0; i < TOY_CATALOG.length; i++) {
       const canvas = document.getElementById(`collection-canvas-${i}`);
-      if (canvas && this.renderer) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        
-        // Match glow shading on Legendary and Rare items
-        if (i === 6) {
-          ctx.shadowBlur = 5;
-          ctx.shadowColor = '#eab308';
-        } else if (i === 7) {
-          ctx.shadowBlur = 6;
-          ctx.shadowColor = '#fecdd3';
-        } else if (i === 8) {
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = '#fbbf24';
-        } else if (i === 16) {
-          ctx.shadowBlur = 6;
-          ctx.shadowColor = '#d946ef';
-        } else if (i === 17) {
-          ctx.shadowBlur = 8;
-          ctx.shadowColor = '#ff8787';
-        } else if (i === 18) {
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = '#fcc419';
-        } else if (i === 19) {
-          ctx.shadowBlur = 6;
-          ctx.shadowColor = '#fdba74';
-        } else if (i === 20) {
-          ctx.shadowBlur = 6;
-          ctx.shadowColor = '#67e8f9';
-        } else if (i === 21) {
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = '#34d399';
-        }
+      if (!canvas) continue;
 
-        this.renderer.drawSquishyToy(ctx, i, 17);
-        ctx.restore();
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+
+      const glow = glowMap[i];
+      if (glow) {
+        ctx.shadowBlur = glow[0];
+        ctx.shadowColor = glow[1];
       }
+
+      this.renderer.drawSquishyToy(ctx, i, 17);
+      ctx.restore();
+    }
+  }
+
+  updateCollectionCard(i) {
+    const inv = this.inventory[i] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
+    const totalCollected = inv.normal + inv.glitter + inv.metallic + inv.galaxy;
+
+    const card = document.getElementById(`card-${i}`);
+    if (!card) return;
+
+    const countEl = card.querySelector('.card-count');
+    if (countEl) countEl.textContent = `Collected: ${totalCollected}`;
+
+    if (totalCollected > 0 && card.classList.contains('locked')) {
+      card.classList.remove('locked');
+    }
+
+    if (totalCollected > 0) {
+      card.style.cursor = 'pointer';
+      card.onclick = () => {
+        this.openSquishyViewer(i);
+      };
+    } else {
+      card.style.cursor = 'default';
+      card.onclick = null;
+    }
+
+    const normalBadge = card.querySelector('.skin-badge.normal');
+    const glitterBadge = card.querySelector('.skin-badge.glitter');
+    const metallicBadge = card.querySelector('.skin-badge.metallic');
+    const galaxyBadge = card.querySelector('.skin-badge.galaxy');
+
+    if (normalBadge && inv.normal > 0) normalBadge.classList.remove('locked');
+    if (glitterBadge && inv.glitter > 0) glitterBadge.classList.remove('locked');
+    if (metallicBadge && inv.metallic > 0) metallicBadge.classList.remove('locked');
+    if (galaxyBadge && inv.galaxy > 0) galaxyBadge.classList.remove('locked');
+  }
+
+  updateCollectionUI() {
+    for (let i = 0; i < TOY_CATALOG.length; i++) {
+      this.updateCollectionCard(i);
     }
   }
 
@@ -1047,97 +1004,35 @@ export class GymnasticsGame {
     this.canvas.height = container.clientHeight;
   }
 
+  closeSquishyViewer() {
+    this.viewerActive = false;
+    if (this.viewerRafId !== null) {
+      cancelAnimationFrame(this.viewerRafId);
+      this.viewerRafId = null;
+    }
+  }
+
   openSquishyViewer(typeId) {
+    if (this.viewerRafId !== null) {
+      cancelAnimationFrame(this.viewerRafId);
+      this.viewerRafId = null;
+    }
+
     this.viewerTypeId = typeId;
     this.viewerActive = true;
     this.viewerRotation = 0;
     this.viewerTiltX = 0;
     this.viewerTiltY = 0;
 
-    const names = [
-      'Nice Cube NeeDoh', 
-      'Wendy Frog Squish', 
-      'Cam Cat Squish', 
-      'NeeDoh Gumdrop', 
-      'Connor Cow Squish', 
-      'Teenie NeeDohs', 
-      'Shaggy NeeDoh', 
-      'Archie Axolotl Squish', 
-      'Golden Nice Cube',
-      'Red Dumpling Squishy',
-      'Orange Dumpling Squishy',
-      'Yellow Dumpling Squishy',
-      'Green Dumpling Squishy',
-      'Blue Dumpling Squishy',
-      'Purple Dumpling Squishy',
-      'Pink Dumpling Squishy',
-      'UV Light Dumpling',
-      'Rainbow Dumpling',
-      'Golden Dumpling',
-      'Gummy Bear NeeDoh',
-      'Fuzz Ball NeeDoh',
-      'Colour Change NeeDoh'
-    ];
-
-    const descriptions = [
-      'A super squishy transparent cube filled with shaving cream-like NeeDoh compound! Squeeze it to watch it deform.',
-      'Wendy is a bright green frog who loves reading books by the pond and gardening with her friends!',
-      'Cam is a cute calico cat mochi. He loves taking long naps in warm sunny spots and eating treats.',
-      'A soft, velvety gumdrop squishy. It has a beautiful matte surface texture and an incredibly slow rise.',
-      'Connor is a sweet black-and-white cow who loves baking fresh apple pies and playing soccer on the farm.',
-      'A cluster of three tiny, super-glossy neon squishy spheres that bounce and slide together!',
-      'A bright yellow stress ball covered in hundreds of shaggy, stretchy rubber strands ending in golden beads.',
-      'Archie is a pink axolotl who loves learning sign language and playing the harp at gymnastics events!',
-      'An ultra-rare holographic golden Nice Cube. Reflects light from every angle with spectacular chrome sparkles.',
-      'A classic red dumpling squishy. Freshly steamed and super soft, it deforms easily under pressure.',
-      'A bright orange dumpling squishy. Infused with a sweet citrus scent for extra sensory relaxation!',
-      'A bright yellow dumpling squishy. Soft and elastic, it deforms and instantly rebounds back into shape.',
-      'A cool green dumpling squishy. Feels incredibly refreshing to hold and squeeze after a long day.',
-      'A sky blue dumpling squishy. Emits a soothing ambient glow under direct sunlight.',
-      'A mysterious purple dumpling squishy. Its slow-rise density makes it incredibly satisfying to squish.',
-      'A bright pink dumpling squishy. A cute and stylish addition to any squishy collector catalog!',
-      'An ultraviolet reactive dumpling that glows with indigo light. Reveals secret glowing speckles under UV lights.',
-      'A legendary dumpling that reflects a complete 6-color rainbow gradient. A masterpiece of squishy art!',
-      'A solid gold metallic dumpling. Pure gold plating with dazzling sparkles that rotate as it spins.',
-      'A cute translucent gummy bear squishy. Made from stretchy, rubbery compound that deforms and bounces!',
-      'A soft fuzz-covered stress ball! Hundreds of micro-fuzzy hair strands make it incredibly soothing to squeeze.',
-      'A magical colour-changing squishy ball! Smoothly shifts from vibrant green to bright pink as it bounces or gets squished.'
-    ];
-
-    const rarities = [
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'RARE', class: 'rare', points: 300 },
-      { text: 'RARE', class: 'rare', points: 300 },
-      { text: 'RARE', class: 'rare', points: 300 },
-      { text: 'LEGENDARY', class: 'legendary', points: 600 },
-      { text: 'LEGENDARY', class: 'legendary', points: 600 },
-      { text: 'LEGENDARY', class: 'legendary', points: 600 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'COMMON', class: 'common', points: 150 },
-      { text: 'RARE', class: 'rare', points: 300 },
-      { text: 'LEGENDARY', class: 'legendary', points: 600 },
-      { text: 'LEGENDARY', class: 'legendary', points: 600 },
-      { text: 'RARE', class: 'rare', points: 300 },
-      { text: 'RARE', class: 'rare', points: 300 },
-      { text: 'LEGENDARY', class: 'legendary', points: 600 }
-    ];
-
-    const item = rarities[typeId];
+    const item = TOY_CATALOG[typeId] || TOY_CATALOG[0];
     const rarityEl = document.getElementById('viewer-rarity');
     if (rarityEl) {
-      rarityEl.textContent = item.text;
-      rarityEl.className = `card-rarity ${item.class}`;
+      rarityEl.textContent = item.rarity;
+      rarityEl.className = `card-rarity ${item.rarityClass}`;
     }
 
-    document.getElementById('viewer-name').textContent = names[typeId];
-    document.getElementById('viewer-description').textContent = descriptions[typeId];
+    document.getElementById('viewer-name').textContent = item.name;
+    document.getElementById('viewer-description').textContent = item.description;
     document.getElementById('viewer-val-points').textContent = item.points;
 
     const inv = this.inventory[typeId] || { normal: 0, glitter: 0, metallic: 0, galaxy: 0 };
@@ -1151,8 +1046,7 @@ export class GymnasticsGame {
 
     this.activeViewerSkin = activeSkin;
 
-    const mults = { normal: '1.0x', glitter: '1.5x', metallic: '2.0x', galaxy: '3.0x' };
-    document.getElementById('viewer-val-mult').textContent = mults[activeSkin];
+    document.getElementById('viewer-val-mult').textContent = SKIN_CONFIG[activeSkin].multText;
 
     const setupBadge = (id, skinName, unlocked) => {
       const el = document.getElementById(id);
@@ -1165,7 +1059,7 @@ export class GymnasticsGame {
       el.onclick = () => {
         if (unlocked) {
           this.activeViewerSkin = skinName;
-          document.getElementById('viewer-val-mult').textContent = mults[skinName];
+          document.getElementById('viewer-val-mult').textContent = SKIN_CONFIG[skinName].multText;
           document.querySelectorAll('.viewer-skin-badge').forEach(b => b.classList.remove('active'));
           el.classList.add('active');
         }
@@ -1186,9 +1080,11 @@ export class GymnasticsGame {
     const modal = document.getElementById('squishy-viewer-modal');
     if (modal) modal.classList.add('visible');
 
-    // Attach mouse handlers for interactive tilt
+    // Cache canvas & context once and attach mouse handlers for interactive tilt
     const canvas = document.getElementById('viewer-canvas');
     if (canvas) {
+      this.viewerCanvas = canvas;
+      this.viewerCtx = canvas.getContext('2d');
       canvas.onmousemove = (e) => {
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) / rect.width - 0.5;
@@ -1206,13 +1102,17 @@ export class GymnasticsGame {
   }
 
   renderViewer() {
-    if (!this.viewerActive) return;
+    if (!this.viewerActive) {
+      this.viewerRafId = null;
+      return;
+    }
 
-    const canvas = document.getElementById('viewer-canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const canvas = this.viewerCanvas;
+    const ctx = this.viewerCtx;
+    if (!canvas || !ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    const now = performance.now();
     this.viewerRotation += 0.012;
     const angle = this.viewerRotation + this.viewerTiltX;
 
@@ -1242,7 +1142,7 @@ export class GymnasticsGame {
       ctx.strokeStyle = 'rgba(192, 132, 252, 0.35)';
       ctx.lineWidth = 2.0;
       ctx.save();
-      ctx.rotate(Date.now() * 0.001);
+      ctx.rotate(now * 0.001);
       ctx.beginPath();
       ctx.ellipse(0, 0, 100, 30, 0.2, 0, Math.PI*2);
       ctx.stroke();
@@ -1264,8 +1164,8 @@ export class GymnasticsGame {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
       ctx.lineWidth = 2.0;
       for (let s = 0; s < 3; s++) {
-        const steamOffset = (Date.now() * 0.03 + s * 30) % 80;
-        const steamX = -20 + s * 20 + Math.sin(Date.now() * 0.004 + s) * 6;
+        const steamOffset = (now * 0.03 + s * 30) % 80;
+        const steamX = -20 + s * 20 + Math.sin(now * 0.004 + s) * 6;
         const steamY = -50 - steamOffset;
         ctx.beginPath();
         ctx.moveTo(steamX, steamY);
@@ -1279,15 +1179,13 @@ export class GymnasticsGame {
     if (this.viewerTypeId === 16) {
       ctx.save();
       for (let p = 0; p < 4; p++) {
-        const pOffset = (Date.now() * 0.02 + p * 20) % 65;
-        const px = -22 + p * 15 + Math.sin(Date.now() * 0.005 + p) * 4;
+        const pOffset = (now * 0.02 + p * 20) % 65;
+        const px = -22 + p * 15 + Math.sin(now * 0.005 + p) * 4;
         const py = -40 - pOffset;
         const alpha = 1.0 - pOffset / 65;
         ctx.fillStyle = `rgba(217, 70, 239, ${alpha})`;
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = '#d946ef';
         ctx.beginPath();
-        ctx.arc(px, py, 2.0, 0, Math.PI*2);
+        ctx.arc(px, py, 2.5, 0, Math.PI*2);
         ctx.fill();
       }
       ctx.restore();
@@ -1296,7 +1194,7 @@ export class GymnasticsGame {
     // Characteristics: Draw rotating gold sparkles around Golden Cube (8) or Golden Dumpling (18)
     if (this.viewerTypeId === 8 || this.viewerTypeId === 18) {
       ctx.save();
-      ctx.rotate(Date.now() * 0.0012);
+      ctx.rotate(now * 0.0012);
       ctx.strokeStyle = '#fde047';
       ctx.lineWidth = 1.4;
       const drawSpark = (sx, sy) => {
@@ -1312,9 +1210,6 @@ export class GymnasticsGame {
       ctx.restore();
     }
 
-    ctx.shadowBlur = 18;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-
     // Characteristics: Apply dynamic deform/squish transforms directly to the canvas context
     ctx.save();
     let scaleX = 1.0;
@@ -1323,14 +1218,14 @@ export class GymnasticsGame {
 
     if (this.viewerTypeId === 3) {
       // Gumdrop slow-rise compression
-      const cycle = (Date.now() * 0.002) % (Math.PI * 2);
+      const cycle = (now * 0.002) % (Math.PI * 2);
       const factor = Math.sin(cycle);
       scaleY = 1.0 - Math.max(0, factor) * 0.16;
       scaleX = 1.0 + Math.max(0, factor) * 0.08;
       transY = 15 * Math.max(0, factor);
     } else if (this.viewerTypeId === 19) {
       // Gummy Bear jello jiggle wobble
-      const cycle = Date.now() * 0.008;
+      const cycle = now * 0.008;
       scaleY = 1.0 + Math.sin(cycle) * 0.05;
       scaleX = 1.0 - Math.sin(cycle) * 0.025;
       transY = -Math.abs(Math.sin(cycle)) * 2;
@@ -1375,7 +1270,7 @@ export class GymnasticsGame {
 
     ctx.restore();
 
-    requestAnimationFrame(() => this.renderViewer());
+    this.viewerRafId = requestAnimationFrame(() => this.renderViewer());
   }
 
   getPermanentSquishyCount() {

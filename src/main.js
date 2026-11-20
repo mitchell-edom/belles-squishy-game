@@ -5,9 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize the game
   const game = new GymnasticsGame('game-canvas');
 
-  // Focus canvas by default so keyboard inputs work immediately
+  // Focus canvas by default on non-touch devices so keyboard inputs work immediately
   const canvas = document.getElementById('game-canvas');
-  if (canvas) {
+  if (canvas && !('ontouchstart' in window)) {
     canvas.focus();
   }
 
@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById(id);
     if (modal) {
       modal.classList.remove('visible');
+      if (id === 'squishy-viewer-modal') {
+        game.closeSquishyViewer();
+      }
       // Re-focus canvas so keyboard inputs keep working
       canvas?.focus();
     }
@@ -29,7 +32,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-toggle-customizer')?.addEventListener('click', () => openModal('customizer-modal'));
   document.getElementById('btn-close-customizer')?.addEventListener('click', () => closeModal('customizer-modal'));
 
-  document.getElementById('btn-toggle-collection')?.addEventListener('click', () => openModal('collection-modal'));
+  document.getElementById('btn-toggle-collection')?.addEventListener('click', () => {
+    game.initCollectionCanvases();
+    game.updateCollectionUI();
+    openModal('collection-modal');
+  });
   document.getElementById('btn-close-collection')?.addEventListener('click', () => closeModal('collection-modal'));
 
   document.getElementById('btn-toggle-help')?.addEventListener('click', () => openModal('help-modal'));
@@ -37,42 +44,71 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btn-close-viewer')?.addEventListener('click', () => {
     closeModal('squishy-viewer-modal');
-    game.viewerActive = false;
   });
 
-  // Close modals on clicking outside the card
+  // Close dismissible modals on clicking outside the card (never dismiss revive modal accidentally)
   window.addEventListener('click', (e) => {
-    if (e.target.classList.contains('modal-overlay')) {
+    if (
+      e.target.classList.contains('modal-overlay') &&
+      e.target.id !== 'revive-modal'
+    ) {
       closeModal(e.target.id);
-      if (e.target.id === 'squishy-viewer-modal') {
-        game.viewerActive = false;
+    }
+  });
+
+  // Close dismissible modals on Escape key
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const dismissibleIds = ['squishy-viewer-modal', 'customizer-modal', 'collection-modal', 'help-modal'];
+    for (const id of dismissibleIds) {
+      const modal = document.getElementById(id);
+      if (modal && modal.classList.contains('visible')) {
+        closeModal(id);
+        break;
       }
     }
   });
 
   // 2. Character Customization updates
-  document.getElementById('skin-color')?.addEventListener('change', (e) => {
+  const skinInput = document.getElementById('skin-color');
+  const hairColorInput = document.getElementById('hair-color');
+  const hairStyleSelect = document.getElementById('hair-style');
+  const outfitColorSelect = document.getElementById('outfit-color');
+  const hatTypeSelect = document.getElementById('hat-type');
+  const capeCheckbox = document.getElementById('has-cape');
+
+  skinInput?.addEventListener('change', (e) => {
     game.updateCustomization('skinColor', e.target.value);
   });
 
-  document.getElementById('hair-color')?.addEventListener('change', (e) => {
+  hairColorInput?.addEventListener('change', (e) => {
     game.updateCustomization('hairColor', e.target.value);
   });
 
-  document.getElementById('hair-style')?.addEventListener('change', (e) => {
+  hairStyleSelect?.addEventListener('change', (e) => {
     game.updateCustomization('hairStyle', e.target.value);
   });
 
-  document.getElementById('outfit-color')?.addEventListener('change', (e) => {
+  outfitColorSelect?.addEventListener('change', (e) => {
     game.updateCustomization('outfitColor', e.target.value);
   });
 
-  document.getElementById('hat-type')?.addEventListener('change', (e) => {
+  hatTypeSelect?.addEventListener('change', (e) => {
     game.updateCustomization('hat', e.target.value);
   });
 
-  document.getElementById('has-cape')?.addEventListener('change', (e) => {
+  capeCheckbox?.addEventListener('change', (e) => {
     game.updateCustomization('hasCape', e.target.checked);
+  });
+
+  document.getElementById('btn-reset')?.addEventListener('click', () => {
+    const defaults = game.resetCustomization();
+    if (skinInput) skinInput.value = defaults.skinColor;
+    if (hairColorInput) hairColorInput.value = defaults.hairColor;
+    if (hairStyleSelect) hairStyleSelect.value = defaults.hairStyle;
+    if (outfitColorSelect) outfitColorSelect.value = defaults.outfitColor;
+    if (hatTypeSelect) hatTypeSelect.value = defaults.hat;
+    if (capeCheckbox) capeCheckbox.checked = defaults.hasCape;
   });
 
   // 3. Audio settings toggle
@@ -83,13 +119,15 @@ document.addEventListener('DOMContentLoaded', () => {
     soundToggleBtn.addEventListener('click', () => {
       soundEnabled = !soundEnabled;
       gameAudio.toggle(soundEnabled);
-      
+
       if (soundEnabled) {
         soundToggleBtn.classList.remove('sound-muted');
-        soundToggleBtn.innerHTML = '🔊 Sound';
+        soundToggleBtn.textContent = '🔊 Sound';
+        soundToggleBtn.setAttribute('aria-pressed', 'true');
       } else {
         soundToggleBtn.classList.add('sound-muted');
-        soundToggleBtn.innerHTML = '🔇 Muted';
+        soundToggleBtn.textContent = '🔇 Muted';
+        soundToggleBtn.setAttribute('aria-pressed', 'false');
       }
       canvas?.focus();
     });
@@ -106,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     canvas?.focus();
   });
 
-  // 4. Initialize browser AudioContext on user interaction
+  // 4. Initialize browser AudioContext on first user interaction
   const startAudioContext = () => {
     gameAudio.init();
     if (gameAudio.ctx && gameAudio.ctx.state === 'suspended') {
@@ -116,8 +154,8 @@ document.addEventListener('DOMContentLoaded', () => {
     window.removeEventListener('keydown', startAudioContext);
     window.removeEventListener('touchstart', startAudioContext);
   };
-  
+
   window.addEventListener('click', startAudioContext);
   window.addEventListener('keydown', startAudioContext);
-  window.addEventListener('touchstart', startAudioContext);
+  window.addEventListener('touchstart', startAudioContext, { passive: true });
 });

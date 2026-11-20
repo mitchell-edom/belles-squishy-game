@@ -2,41 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Belle's Gymnastics & Contortionist Arena</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#020617">
+  <meta name="description" content="Belle's Gymnastics & Contortionist Arena — Flip, swing, vault, and collect 22 3D squishy toys in an endless arcade gymnastics platformer.">
+  <meta property="og:title" content="Belle's Gymnastics & Contortionist Arena">
+  <meta property="og:description" content="Flip, swing, vault, and collect 22 3D squishy toys in an endless arcade gymnastics platformer.">
+  <meta property="og:type" content="website">
+  <title>Belle's Gymnastics &amp; Contortionist Arena</title>
   
   <!-- Inline SVG favicon (Gymnast Emoji) -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🤸‍♀️</text></svg>">
   
   <!-- Stylesheet -->
   <link rel="stylesheet" href="/src/style.css">
-  
-  <!-- Error Diagnostic Catcher -->
-  <script>
-    window.onerror = function(msg, url, line, col, error) {
-      const div = document.createElement('div');
-      div.style.position = 'fixed';
-      div.style.top = '10px';
-      div.style.left = '10px';
-      div.style.right = '10px';
-      div.style.background = '#ef4444';
-      div.style.color = '#fff';
-      div.style.padding = '20px';
-      div.style.zIndex = '999999';
-      div.style.borderRadius = '12px';
-      div.style.fontFamily = 'monospace';
-      div.style.maxHeight = '80vh';
-      div.style.overflowY = 'auto';
-      div.style.boxShadow = '0 10px 25px rgba(0,0,0,0.5)';
-      div.innerHTML = '<h3>🚨 Game Initialization Crash</h3>' + 
-                      '<p><strong>Message:</strong> ' + msg + '</p>' + 
-                      '<p><strong>File:</strong> ' + url + ':' + line + ':' + col + '</p>' + 
-                      '<pre style="background: rgba(0,0,0,0.2); padding: 10px; margin-top: 10px; border-radius: 6px; overflow-x: auto;">' + 
-                      (error ? error.stack : 'No stack trace available') + '</pre>';
-      document.body.appendChild(div);
-      return false;
-    };
-  </script>
 
   <!-- Premium Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -100,7 +78,7 @@
       <div class="modal-card">
         <div class="modal-header">
           <h3>👗 Customize Gymnast</h3>
-          <button id="btn-close-customizer" class="btn-close">&times;</button>
+          <button id="btn-close-customizer" class="btn-close" aria-label="Close customizer">&times;</button>
         </div>
         
         <div class="modal-body customizer-options">
@@ -164,7 +142,7 @@
       <div class="modal-card" style="max-width: 480px; width: 95%;">
         <div class="modal-header">
           <h3>🧸 Toy Collection</h3>
-          <button id="btn-close-collection" class="btn-close">&times;</button>
+          <button id="btn-close-collection" class="btn-close" aria-label="Close collection">&times;</button>
         </div>
         <div class="modal-body collection-scroll">
           <p class="collection-intro">Collect cute viral toys in the level to unlock them in your catalog!</p>
@@ -478,7 +456,7 @@
     <!-- 3D Squishy Detail Viewer Modal -->
     <div id="squishy-viewer-modal" class="modal-overlay">
       <div class="viewer-card">
-        <button id="btn-close-viewer" class="close-btn">&times;</button>
+        <button id="btn-close-viewer" class="close-btn" aria-label="Close 3D viewer">&times;</button>
         <div class="viewer-layout">
           <!-- Left Panel: 3D Render -->
           <div class="viewer-render-panel">
@@ -529,7 +507,7 @@
             <path class="timer-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
             <path id="timer-progress" class="timer-progress" stroke-dasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
           </svg>
-          <div id="revive-timer-text" class="revive-timer-text">6</div>
+          <div id="revive-timer-text" class="revive-timer-text" aria-live="polite">6</div>
         </div>
 
         <div class="revive-buttons">
@@ -544,7 +522,7 @@
       <div class="modal-card">
         <div class="modal-header">
           <h3>🎮 Keyboard Controls</h3>
-          <button id="btn-close-help" class="btn-close">&times;</button>
+          <button id="btn-close-help" class="btn-close" aria-label="Close keyboard controls">&times;</button>
         </div>
         <div class="modal-body">
           <ul class="moves-guide">
@@ -581,7 +559,7 @@
               <div class="desc"><strong>Reach/Grab</strong>: Reach hands to catch steel swing bars and rings!</div>
             </li>
             <li>
-              <kbd>R</kbd>
+              <kbd>Enter</kbd>
               <div class="desc"><strong>Restart</strong>: Start over at the beginning.</div>
             </li>
           </ul>

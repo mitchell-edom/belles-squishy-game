@@ -88,6 +88,7 @@ export class Environment {
     });
 
     this.staticBodies.push(leftPost, rightPost);
+    bed._constraints = [springL, springR];
     this.interactiveBodies.push(bed);
     Composite.add(this.world, [leftPost, rightPost, bed, springL, springR]);
   }
@@ -122,6 +123,7 @@ export class Environment {
     });
 
     this.staticBodies.push(anchor);
+    plank._constraints = [pivot, supportSpring];
     this.interactiveBodies.push(plank);
     Composite.add(this.world, [anchor, plank, pivot, supportSpring]);
   }
@@ -145,6 +147,7 @@ export class Environment {
     });
 
     this.staticBodies.push(anchor);
+    ring._constraints = [rope];
     this.interactiveBodies.push(ring);
     
     this.grabPoints.push({
@@ -247,21 +250,34 @@ export class Environment {
     // 2. Clean up old elements to maintain lightweight execution
     const cullBoundaryX = playerX - 1800;
     
-    // Cull static bodies
+    // Cull static bodies (including old ceiling segments, keeping left boundary wall)
     for (let i = this.staticBodies.length - 1; i >= 0; i--) {
       const body = this.staticBodies[i];
-      if (body.position.x < cullBoundaryX && body.label !== 'boundary-wall' && body.label !== 'boundary-ceiling') {
+      if (body.label === 'boundary-wall') continue;
+      if (body.bounds.max.x < cullBoundaryX) {
         Composite.remove(this.world, body);
         this.staticBodies.splice(i, 1);
       }
     }
 
-    // Cull interactive bodies
+    // Cull orphaned grab points behind the cull boundary
+    for (let i = this.grabPoints.length - 1; i >= 0; i--) {
+      const gp = this.grabPoints[i];
+      const gx = gp.isDynamic ? gp.body.position.x : gp.x;
+      if (gx < cullBoundaryX) {
+        this.grabPoints.splice(i, 1);
+      }
+    }
+
+    // Cull interactive bodies and their associated Matter.js constraints
     for (let i = this.interactiveBodies.length - 1; i >= 0; i--) {
       const body = this.interactiveBodies[i];
       if (body.position.x < cullBoundaryX) {
-        // Also remove dynamic grab points associated with swinging rings
-        this.grabPoints = this.grabPoints.filter(gp => gp.body !== body);
+        if (body._constraints) {
+          for (let c = 0; c < body._constraints.length; c++) {
+            Composite.remove(this.world, body._constraints[c]);
+          }
+        }
         Composite.remove(this.world, body);
         this.interactiveBodies.splice(i, 1);
       }
@@ -499,6 +515,9 @@ export class Environment {
   // Remove collected squishy from the world
   respawnStar(starBody) {
     Composite.remove(this.world, starBody);
-    this.stars = this.stars.filter(s => s !== starBody);
+    const idx = this.stars.indexOf(starBody);
+    if (idx !== -1) {
+      this.stars.splice(idx, 1);
+    }
   }
 }

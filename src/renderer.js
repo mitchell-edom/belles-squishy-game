@@ -1,4 +1,23 @@
-import Matter from 'matter-js';
+import { TOY_CATALOG } from './toys';
+
+const CONFETTI_COLORS = [
+  '#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#8b5cf6',
+  '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#eab308'
+];
+
+const CUBE_VERTICES = [
+  { x: -1, y: -1, z: -1 },
+  { x: 1, y: -1, z: -1 },
+  { x: 1, y: 1, z: -1 },
+  { x: -1, y: 1, z: -1 },
+  { x: -1, y: -1, z: 1 },
+  { x: 1, y: -1, z: 1 },
+  { x: 1, y: 1, z: 1 },
+  { x: -1, y: 1, z: 1 }
+];
+
+const CUBE_PITCH_COS = Math.cos(0.48);
+const CUBE_PITCH_SIN = Math.sin(0.48);
 
 // Polyfill roundRect for older browser rendering engines
 if (typeof CanvasRenderingContext2D.prototype.roundRect !== 'function') {
@@ -36,10 +55,18 @@ if (typeof CanvasRenderingContext2D.prototype.roundRect !== 'function') {
 export class CustomRenderer {
   constructor(canvas, world, gymnast, environment) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    this.ctx = canvas.getContext('2d', { alpha: false });
     this.world = world;
     this.gymnast = gymnast;
     this.environment = environment;
+
+    // Frame-level timestamp and frustum bounds
+    this.frameNow = performance.now();
+    this.viewL = -200;
+    this.viewR = 1800;
+
+    // Cache reusable local-space gradients to eliminate per-frame allocations
+    this.gradients = this.createCachedGradients(this.ctx);
 
     // Viewport camera
     this.camera = {
@@ -67,8 +94,48 @@ export class CustomRenderer {
     this.shakeDecay = 0.93;
   }
 
+  createCachedGradients(ctx) {
+    const makeSpotlight = (color) => {
+      const g = ctx.createLinearGradient(0, 0, 0, 800);
+      g.addColorStop(0, color);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      return g;
+    };
+
+    const makeAura = (r0, r1, stops) => {
+      const g = ctx.createRadialGradient(0, 0, r0, 0, 0, r1);
+      for (let i = 0; i < stops.length; i++) {
+        g.addColorStop(stops[i][0], stops[i][1]);
+      }
+      return g;
+    };
+
+    return {
+      spotlightCyan: makeSpotlight('rgba(6, 182, 212, 0.12)'),
+      spotlightPink: makeSpotlight('rgba(236, 72, 153, 0.09)'),
+      auraChalk: makeAura(2, 24, [
+        [0, 'rgba(6, 182, 212, 0.45)'],
+        [1, 'rgba(6, 182, 212, 0)']
+      ]),
+      auraGlitter: makeAura(4, 26, [
+        [0, 'rgba(244, 63, 94, 0.45)'],
+        [0.7, 'rgba(236, 72, 153, 0.15)'],
+        [1, 'rgba(236, 72, 153, 0)']
+      ]),
+      auraMetallic: makeAura(4, 26, [
+        [0, 'rgba(241, 245, 249, 0.5)'],
+        [0.7, 'rgba(148, 163, 184, 0.18)'],
+        [1, 'rgba(148, 163, 184, 0)']
+      ]),
+      auraGalaxy: makeAura(4, 26, [
+        [0, 'rgba(168, 85, 247, 0.55)'],
+        [0.6, 'rgba(99, 102, 241, 0.22)'],
+        [1, 'rgba(99, 102, 241, 0)']
+      ])
+    };
+  }
+
   spawnConfetti(x, y, count = 20) {
-    const colors = ['#f43f5e', '#ec4899', '#d946ef', '#a855f7', '#8b5cf6', '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#eab308'];
     for (let i = 0; i < count; i++) {
       this.particles.push({
         x,
@@ -76,7 +143,7 @@ export class CustomRenderer {
         vx: (Math.random() - 0.5) * 8,
         vy: (Math.random() - 0.8) * 8 - 2,
         size: 5 + Math.random() * 5,
-        color: colors[Math.floor(Math.random() * colors.length)],
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
         alpha: 1,
         rotation: Math.random() * Math.PI * 2,
         rotSpeed: (Math.random() - 0.5) * 0.18,
@@ -189,6 +256,7 @@ export class CustomRenderer {
   }
 
   render(width, height) {
+    this.frameNow = performance.now();
     this.updateCamera(width, height);
 
     this.ctx.fillStyle = '#0a0d17';
@@ -206,6 +274,11 @@ export class CustomRenderer {
     
     const centerCamX = this.camera.x + width / 2 + shakeX;
     const centerCamY = this.camera.y + height / 2 + shakeY;
+
+    // Exact zoom-aware horizontal frustum bounds
+    const halfVisibleW = (width / this.camera.zoom) * 0.5 + 160;
+    this.viewL = centerCamX - halfVisibleW;
+    this.viewR = centerCamX + halfVisibleW;
     
     this.ctx.translate(width / 2, height / 2);
     this.ctx.scale(this.camera.zoom, this.camera.zoom);
@@ -225,120 +298,115 @@ export class CustomRenderer {
   }
 
   drawParallaxBackground(width, height) {
-    this.ctx.save();
+    const ctx = this.ctx;
+    const now = this.frameNow;
+    const camL = this.viewL - 60;
+    const camR = this.viewR + 60;
+    const bgW = camR - camL;
+
+    ctx.save();
     
     // Fill the arena background wall (Deep Indigo Cosmic Violet)
-    this.ctx.fillStyle = '#0a0612';
-    this.ctx.fillRect(this.camera.x - 200, 0, width + 400, height);
+    ctx.fillStyle = '#0a0612';
+    ctx.fillRect(camL, 0, bgW, height);
 
-    const startX = Math.floor((this.camera.x - 200) / 600) * 600;
-    const endX = startX + width + 800;
+    const startX = Math.floor(camL / 600) * 600;
+    const endX = camR + 600;
 
-    // Draw horizontal wall panel lines
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
-    this.ctx.lineWidth = 1;
+    // Batched horizontal wall panel lines (1 draw call)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
     for (let wy = 80; wy < 850; wy += 80) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(this.camera.x - 200, wy);
-      this.ctx.lineTo(this.camera.x + width + 200, wy);
-      this.ctx.stroke();
+      ctx.moveTo(camL, wy);
+      ctx.lineTo(camR, wy);
     }
+    ctx.stroke();
 
-    // 1. Draw glowing horizontal neon LED strips (using fast double-draw instead of slow shadowBlur)
-    this.ctx.save();
-    
-    // Bottom Cyan LED line
-    this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
-    this.ctx.lineWidth = 10;
-    this.ctx.beginPath();
-    this.ctx.moveTo(this.camera.x - 200, 785);
-    this.ctx.lineTo(this.camera.x + width + 200, 785);
-    this.ctx.stroke();
+    // 1. Draw glowing horizontal neon LED strips (fast double-draw)
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(camL, 785);
+    ctx.lineTo(camR, 785);
+    ctx.stroke();
 
-    this.ctx.strokeStyle = '#22d3ee';
-    this.ctx.lineWidth = 2.5;
-    this.ctx.stroke();
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
 
-    // Top Hot Pink LED line
-    this.ctx.strokeStyle = 'rgba(236, 72, 153, 0.2)';
-    this.ctx.lineWidth = 10;
-    this.ctx.beginPath();
-    this.ctx.moveTo(this.camera.x - 200, 150);
-    this.ctx.lineTo(this.camera.x + width + 200, 150);
-    this.ctx.stroke();
+    ctx.strokeStyle = 'rgba(236, 72, 153, 0.2)';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(camL, 150);
+    ctx.lineTo(camR, 150);
+    ctx.stroke();
 
-    this.ctx.strokeStyle = '#f472b6';
-    this.ctx.lineWidth = 2.5;
-    this.ctx.stroke();
-    this.ctx.restore();
+    ctx.strokeStyle = '#f472b6';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
 
     // 2. Draw spectator stands & cheering crowd
-    this.ctx.fillStyle = '#110c1c';
-    this.ctx.fillRect(this.camera.x - 200, 480, width + 400, 140);
+    ctx.fillStyle = '#110c1c';
+    ctx.fillRect(camL, 480, bgW, 140);
     
-    this.ctx.strokeStyle = '#1e162f';
-    this.ctx.lineWidth = 2;
+    // Batched spectator stand tier lines (1 draw call)
+    ctx.strokeStyle = '#1e162f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
     for (let ty = 480; ty <= 620; ty += 20) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(this.camera.x - 200, ty);
-      this.ctx.lineTo(this.camera.x + width + 200, ty);
-      this.ctx.stroke();
+      ctx.moveTo(camL, ty);
+      ctx.lineTo(camR, ty);
     }
+    ctx.stroke();
 
-    // Cheering crowd heads (bouncing slightly)
-    this.ctx.fillStyle = 'rgba(168, 85, 247, 0.35)'; // Purple crowd glow
-    for (let cx = startX; cx <= endX; cx += 40) {
+    // Batched cheering crowd heads (1 draw call instead of ~315)
+    ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
+    const crowdPhase = now * 0.005;
+    const crowdStart = Math.floor(camL / 40) * 40;
+    ctx.beginPath();
+    for (let cx = crowdStart; cx <= camR; cx += 40) {
       for (let cy = 490; cy < 620; cy += 20) {
-        const bounce = Math.sin(Date.now() * 0.005 + cx * 0.2 + cy * 0.5) * 2;
-        this.ctx.beginPath();
-        this.ctx.arc(cx + (cy % 3) * 12, cy + bounce, 2.5, 0, Math.PI*2);
-        this.ctx.fill();
+        const bounce = Math.sin(crowdPhase + cx * 0.2 + cy * 0.5) * 2;
+        const px = cx + (cy % 3) * 12;
+        const py = cy + bounce;
+        ctx.moveTo(px + 2.5, py);
+        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
       }
     }
+    ctx.fill();
 
-    // 3. Draw sweeping volumetric spotlights
+    // 3. Draw sweeping volumetric spotlights using cached gradients
     const spotX1 = this.camera.x + 300;
     const spotX2 = this.camera.x + width - 300;
-    const spotY = 0;
     
-    const drawSpotlight = (sx, sy, color, speedOffset) => {
-      this.ctx.save();
-      const tilt = Math.sin(Date.now() * 0.0008 + speedOffset) * 0.4;
-      
-      this.ctx.translate(sx, sy);
-      this.ctx.rotate(tilt);
-      
-      const coneGrad = this.ctx.createLinearGradient(0, 0, 0, 800);
-      coneGrad.addColorStop(0, color);
-      coneGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      
-      this.ctx.fillStyle = coneGrad;
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, 0);
-      this.ctx.lineTo(-150, 800);
-      this.ctx.lineTo(150, 800);
-      this.ctx.closePath();
-      this.ctx.fill();
-      
-      this.ctx.restore();
+    const drawSpotlight = (sx, grad, speedOffset) => {
+      ctx.save();
+      const tilt = Math.sin(now * 0.0008 + speedOffset) * 0.4;
+      ctx.translate(sx, 0);
+      ctx.rotate(tilt);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-150, 800);
+      ctx.lineTo(150, 800);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     };
 
-    drawSpotlight(spotX1, spotY, 'rgba(6, 182, 212, 0.12)', 0);      // Neon Cyan cone
-    drawSpotlight(spotX2, spotY, 'rgba(236, 72, 153, 0.09)', Math.PI); // Hot Pink cone
-
-    // Setup viewport culling boundaries for parallax loop elements
-    const camL = this.camera.x - 200;
-    const camR = this.camera.x + width + 200;
+    drawSpotlight(spotX1, this.gradients.spotlightCyan, 0);
+    drawSpotlight(spotX2, this.gradients.spotlightPink, Math.PI);
 
     // Draw gymnasium elements in parallax (windows, banners, posters)
     for (let x = startX; x <= endX; x += 600) {
       // Vertical pillars
       if (x >= camL && x <= camR) {
-        this.ctx.fillStyle = '#08050e';
-        this.ctx.fillRect(x - 15, 0, 30, 900);
+        ctx.fillStyle = '#08050e';
+        ctx.fillRect(x - 15, 0, 30, 900);
         
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-        this.ctx.fillRect(x - 15, 0, 5, 900);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+        ctx.fillRect(x - 15, 0, 5, 900);
       }
 
       // High Arch Windows alternating with Scoreboards
@@ -350,35 +418,35 @@ export class CustomRenderer {
           const winW = 120;
           const winH = 220;
 
-          this.ctx.save();
-          this.ctx.beginPath();
-          this.ctx.arc(winX, winY, winW / 2, Math.PI, 0);
-          this.ctx.lineTo(winX + winW / 2, winY + winH);
-          this.ctx.lineTo(winX - winW / 2, winY + winH);
-          this.ctx.closePath();
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(winX, winY, winW / 2, Math.PI, 0);
+          ctx.lineTo(winX + winW / 2, winY + winH);
+          ctx.lineTo(winX - winW / 2, winY + winH);
+          ctx.closePath();
 
-          const skyGrad = this.ctx.createLinearGradient(winX, winY - 60, winX, winY + winH);
+          const skyGrad = ctx.createLinearGradient(winX, winY - 60, winX, winY + winH);
           skyGrad.addColorStop(0, '#a855f7');
           skyGrad.addColorStop(1, '#1e1b4b');
-          this.ctx.fillStyle = skyGrad;
-          this.ctx.fill();
+          ctx.fillStyle = skyGrad;
+          ctx.fill();
 
-          this.ctx.strokeStyle = '#050308';
-          this.ctx.lineWidth = 3;
-          this.ctx.stroke();
+          ctx.strokeStyle = '#050308';
+          ctx.lineWidth = 3;
+          ctx.stroke();
 
-          this.ctx.strokeStyle = '#050308';
-          this.ctx.lineWidth = 1.5;
-          this.ctx.beginPath();
-          this.ctx.moveTo(winX, winY - 60);
-          this.ctx.lineTo(winX, winY + winH);
-          this.ctx.moveTo(winX - winW/2, winY + 70);
-          this.ctx.lineTo(winX + winW/2, winY + 70);
-          this.ctx.moveTo(winX - winW/2, winY + 140);
-          this.ctx.lineTo(winX + winW/2, winY + 140);
-          this.ctx.stroke();
+          ctx.strokeStyle = '#050308';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(winX, winY - 60);
+          ctx.lineTo(winX, winY + winH);
+          ctx.moveTo(winX - winW/2, winY + 70);
+          ctx.lineTo(winX + winW/2, winY + 70);
+          ctx.moveTo(winX - winW/2, winY + 140);
+          ctx.lineTo(winX + winW/2, winY + 140);
+          ctx.stroke();
 
-          this.ctx.restore();
+          ctx.restore();
         } else {
           // Electronic Scoreboard Screen
           const boardX = x + 300;
@@ -386,53 +454,50 @@ export class CustomRenderer {
           const boardW = 160;
           const boardH = 100;
           
-          // Frame
-          this.ctx.fillStyle = '#0f172a';
-          this.ctx.fillRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
-          this.ctx.strokeStyle = '#334155';
-          this.ctx.lineWidth = 4;
-          this.ctx.strokeRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(boardX - boardW/2, boardY - boardH/2, boardW, boardH);
           
-          // Inner Neon border
-          this.ctx.strokeStyle = '#06b6d4';
-          this.ctx.lineWidth = 1.5;
-          this.ctx.strokeRect(boardX - boardW/2 + 4, boardY - boardH/2 + 4, boardW - 8, boardH - 8);
+          ctx.strokeStyle = '#06b6d4';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(boardX - boardW/2 + 4, boardY - boardH/2 + 4, boardW - 8, boardH - 8);
 
-          // Scoreboard texts
-          this.ctx.save();
-          this.ctx.fillStyle = '#22d3ee';
-          this.ctx.font = 'bold 9px "Courier New", monospace';
-          this.ctx.textAlign = 'center';
-          this.ctx.fillText("SQUISHY WORLD ARENA", boardX, boardY - 24);
+          ctx.save();
+          ctx.fillStyle = '#22d3ee';
+          ctx.font = 'bold 9px "Courier New", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('SQUISHY WORLD ARENA', boardX, boardY - 24);
           
-          this.ctx.fillStyle = '#10b981'; // green stats
-          this.ctx.font = 'bold 8px "Courier New", monospace';
+          ctx.fillStyle = '#10b981';
+          ctx.font = 'bold 8px "Courier New", monospace';
           
-          // Dynamic speed estimation based on time/pos
-          const currentSpeed = this.camera ? (Math.sin(Date.now() * 0.001) * 2 + 10) : 10;
-          this.ctx.fillText(`SPEED: ${currentSpeed.toFixed(1)} KM/H`, boardX, boardY - 8);
-          this.ctx.fillText(`PERFORMANCE SCORE: 10.0`, boardX, boardY + 6);
-          this.ctx.fillText("CHAMPIONSHIP 2026", boardX, boardY + 20);
-          this.ctx.restore();
+          const currentSpeed = Math.sin(now * 0.001) * 2 + 10;
+          ctx.fillText(`SPEED: ${currentSpeed.toFixed(1)} KM/H`, boardX, boardY - 8);
+          ctx.fillText('PERFORMANCE SCORE: 10.0', boardX, boardY + 6);
+          ctx.fillText('CHAMPIONSHIP 2026', boardX, boardY + 20);
+          ctx.restore();
         }
       }
 
       // Hanging rings
       if (x + 150 >= camL && x + 150 <= camR) {
         const ringX = x + 150;
-        this.ctx.strokeStyle = '#374151';
-        this.ctx.lineWidth = 1;
-        this.ctx.beginPath();
-        this.ctx.moveTo(ringX - 10, 0); this.ctx.lineTo(ringX - 10, 450);
-        this.ctx.moveTo(ringX + 10, 0); this.ctx.lineTo(ringX + 10, 450);
-        this.ctx.stroke();
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(ringX - 10, 0); ctx.lineTo(ringX - 10, 450);
+        ctx.moveTo(ringX + 10, 0); ctx.lineTo(ringX + 10, 450);
+        ctx.stroke();
 
-        this.ctx.strokeStyle = '#ca8a04';
-        this.ctx.lineWidth = 3.5;
-        this.ctx.beginPath();
-        this.ctx.arc(ringX - 10, 456, 9, 0, Math.PI*2);
-        this.ctx.arc(ringX + 10, 456, 9, 0, Math.PI*2);
-        this.ctx.stroke();
+        ctx.strokeStyle = '#ca8a04';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(ringX - 10, 456, 9, 0, Math.PI*2);
+        ctx.moveTo(ringX + 19, 456);
+        ctx.arc(ringX + 10, 456, 9, 0, Math.PI*2);
+        ctx.stroke();
       }
 
       // Collectible Poster
@@ -444,54 +509,46 @@ export class CustomRenderer {
         
         const posterType = ((Math.floor(x / 600) % 22) + 22) % 22;
 
-        const posterGrad = this.ctx.createRadialGradient(postX, postY, 5, postX, postY, postW/2);
+        const posterGrad = ctx.createRadialGradient(postX, postY, 5, postX, postY, postW/2);
         posterGrad.addColorStop(0, '#2d1e3d');
         posterGrad.addColorStop(1, '#0e0b16');
-        this.ctx.fillStyle = posterGrad;
-        this.ctx.fillRect(postX - postW/2, postY - postH/2, postW, postH);
+        ctx.fillStyle = posterGrad;
+        ctx.fillRect(postX - postW/2, postY - postH/2, postW, postH);
 
-        this.ctx.strokeStyle = '#b45309';
-        this.ctx.lineWidth = 4;
-        this.ctx.strokeRect(postX - postW/2, postY - postH/2, postW, postH);
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(postX - postW/2, postY - postH/2, postW, postH);
         
-        this.ctx.strokeStyle = '#fbbf24';
-        this.ctx.lineWidth = 1.0;
-        this.ctx.strokeRect(postX - postW/2 + 2, postY - postH/2 + 2, postW - 4, postH - 4);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 1.0;
+        ctx.strokeRect(postX - postW/2 + 2, postY - postH/2 + 2, postW - 4, postH - 4);
 
-        this.ctx.save();
-        this.ctx.translate(postX, postY - 12);
-        const rotationAngle = (Date.now() * 0.0009 + (x * 0.1)) % (Math.PI * 2);
-        this.drawSquishyToy(this.ctx, posterType, 18, rotationAngle, 'normal');
-        this.ctx.restore();
+        ctx.save();
+        ctx.translate(postX, postY - 12);
+        const rotationAngle = (now * 0.0009 + (x * 0.1)) % (Math.PI * 2);
+        this.drawSquishyToy(ctx, posterType, 18, rotationAngle, 'normal');
+        ctx.restore();
 
-        const names = [
-          'Nice Cube', 'Wendy Frog', 'Cam Cat', 'Gumdrop', 'Connor Cow', 
-          'Teenie NeeDoh', 'Shaggy NeeDoh', 'Archie Axolotl', 'Golden Cube',
-          'Red Dumpling', 'Orange Dumpling', 'Yellow Dumpling', 'Green Dumpling',
-          'Blue Dumpling', 'Purple Dumpling', 'Pink Dumpling', 'UV Dumpling',
-          'Rainbow Dumpling', 'Golden Dumpling', 'Gummy Bear', 'Fuzz Ball', 'Colour Change'
-        ];
+        ctx.save();
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 7px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(TOY_CATALOG[posterType].shortName.toUpperCase(), postX, postY + 38);
         
-        this.ctx.save();
-        this.ctx.fillStyle = '#fbbf24';
-        this.ctx.font = 'bold 7px sans-serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(names[posterType].toUpperCase(), postX, postY + 38);
-        
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-        this.ctx.font = 'italic 5px sans-serif';
-        this.ctx.fillText("COLLECTIBLE POSTER", postX, postY + 47);
-        this.ctx.restore();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.font = 'italic 5px sans-serif';
+        ctx.fillText('COLLECTIBLE POSTER', postX, postY + 47);
+        ctx.restore();
       }
     }
 
-    this.ctx.restore();
+    ctx.restore();
   }
 
   drawStaticEnvironment() {
     this.ctx.save();
-    const viewL = this.camera.x - 120;
-    const viewR = this.camera.x + this.ctx.canvas.width + 120;
+    const viewL = this.viewL;
+    const viewR = this.viewR;
     
     this.environment.staticBodies.forEach(body => {
       const label = body.label || '';
@@ -527,14 +584,17 @@ export class CustomRenderer {
         this.ctx.lineWidth = 1.5;
         const matWidth = vertices[1].x - vertices[0].x;
         const segmentCount = Math.floor(matWidth / 150);
+        this.ctx.beginPath();
         for (let i = 1; i < segmentCount; i++) {
           const sx = vertices[0].x + (matWidth / segmentCount) * i;
-          this.ctx.beginPath();
           this.ctx.moveTo(sx, vertices[0].y + 4);
           this.ctx.lineTo(sx, vertices[2].y - 4);
-          this.ctx.stroke();
+        }
+        this.ctx.stroke();
 
-          this.ctx.fillStyle = '#0f172a';
+        this.ctx.fillStyle = '#0f172a';
+        for (let i = 1; i < segmentCount; i++) {
+          const sx = vertices[0].x + (matWidth / segmentCount) * i;
           this.ctx.fillRect(sx - 10, vertices[0].y + 24, 20, 6);
         }
 
@@ -609,11 +669,12 @@ export class CustomRenderer {
         this.ctx.fillStyle = '#1e293b';
         const height = vertices[2].y - vertices[0].y;
         const notchStep = 25;
+        this.ctx.beginPath();
         for (let ny = 15; ny < height - 10; ny += notchStep) {
-          this.ctx.beginPath();
+          this.ctx.moveTo(vertices[0].x + 5.5, vertices[0].y + ny);
           this.ctx.arc(vertices[0].x + 3, vertices[0].y + ny, 2.5, 0, Math.PI*2);
-          this.ctx.fill();
         }
+        this.ctx.fill();
 
         if (vertices[2].y >= 890) {
           this.ctx.fillStyle = '#334155';
@@ -705,13 +766,13 @@ export class CustomRenderer {
 
         this.ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
         this.ctx.lineWidth = 2.0;
+        this.ctx.beginPath();
         for (let sx = 20; sx < matW - 10; sx += 40) {
-          this.ctx.beginPath();
           this.ctx.moveTo(vertices[0].x + sx, vertices[0].y + 4);
           this.ctx.lineTo(vertices[0].x + sx + 8, vertices[0].y + matH/2);
           this.ctx.lineTo(vertices[0].x + sx, vertices[2].y - 4);
-          this.ctx.stroke();
         }
+        this.ctx.stroke();
       }
       else {
         this.ctx.fillStyle = '#1e1b4b';
@@ -724,8 +785,8 @@ export class CustomRenderer {
 
   drawInteractiveEnvironment() {
     this.ctx.save();
-    const viewL = this.camera.x - 120;
-    const viewR = this.camera.x + this.ctx.canvas.width + 120;
+    const viewL = this.viewL;
+    const viewR = this.viewR;
 
     this.environment.interactiveBodies.forEach(body => {
       // Frustum culling check
@@ -751,17 +812,15 @@ export class CustomRenderer {
         const springCount = 14;
         this.ctx.strokeStyle = '#94a3b8'; 
         this.ctx.lineWidth = 1.2;
-        
+        this.ctx.beginPath();
         for (let i = 0; i < springCount; i++) {
           const sx = v[0].x + (w / springCount) * i;
-          
-          this.ctx.beginPath();
           this.ctx.moveTo(sx, v[0].y);
           this.ctx.lineTo(sx - 3, v[0].y + 4);
           this.ctx.lineTo(sx + 3, v[0].y + 8);
           this.ctx.lineTo(sx, v[0].y + 12);
-          this.ctx.stroke();
         }
+        this.ctx.stroke();
       }
       else if (body.label === 'springboard-plank') {
         this.ctx.beginPath();
@@ -887,51 +946,46 @@ export class CustomRenderer {
 
     // Helper: Real-time 3D projected rotating cube (painter's algorithm)
     const drawRotatedCube = (cx, cy, size, colTop, colFront, colSide, angle) => {
-      const vertices = [
-        {x: -1, y: -1, z: -1},
-        {x: 1, y: -1, z: -1},
-        {x: 1, y: 1, z: -1},
-        {x: -1, y: 1, z: -1},
-        {x: -1, y: -1, z: 1},
-        {x: 1, y: -1, z: 1},
-        {x: 1, y: 1, z: 1},
-        {x: -1, y: 1, z: 1}
-      ];
-      const pitch = 0.48; // Y-tilt angle
-      const rotated = vertices.map(v => {
-        let x1 = v.x * Math.cos(angle) - v.z * Math.sin(angle);
-        let z1 = v.x * Math.sin(angle) + v.z * Math.cos(angle);
-        let y2 = v.y * Math.cos(pitch) - z1 * Math.sin(pitch);
-        let z2 = v.y * Math.sin(pitch) + z1 * Math.cos(pitch);
-        return {x: x1 * size, y: y2 * size, z: z2};
-      });
-      const projected = rotated.map(r => {
-        return {x: cx + r.x * 0.9, y: cy + r.y * 0.9, z: r.z};
-      });
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const scaleSize = size * 0.9;
+      const px = new Float32Array(8);
+      const py = new Float32Array(8);
+      const pz = new Float32Array(8);
+
+      for (let i = 0; i < 8; i++) {
+        const v = CUBE_VERTICES[i];
+        const x1 = v.x * cosA - v.z * sinA;
+        const z1 = v.x * sinA + v.z * cosA;
+        const y2 = v.y * CUBE_PITCH_COS - z1 * CUBE_PITCH_SIN;
+        const z2 = v.y * CUBE_PITCH_SIN + z1 * CUBE_PITCH_COS;
+        px[i] = cx + x1 * scaleSize;
+        py[i] = cy + y2 * scaleSize;
+        pz[i] = z2;
+      }
+
       const faces = [
-        {indices: [0, 1, 2, 3], color: colTop, name: 'top'},
-        {indices: [4, 5, 6, 7], color: colTop, name: 'bottom'},
-        {indices: [0, 1, 5, 4], color: colFront, name: 'front'},
-        {indices: [2, 3, 7, 6], color: colFront, name: 'back'},
-        {indices: [1, 2, 6, 5], color: colSide, name: 'right'},
-        {indices: [0, 3, 7, 4], color: colSide, name: 'left'}
+        { i0: 0, i1: 1, i2: 2, i3: 3, color: colTop, z: pz[0] + pz[1] + pz[2] + pz[3] },
+        { i0: 4, i1: 5, i2: 6, i3: 7, color: colTop, z: pz[4] + pz[5] + pz[6] + pz[7] },
+        { i0: 0, i1: 1, i2: 5, i3: 4, color: colFront, z: pz[0] + pz[1] + pz[5] + pz[4] },
+        { i0: 2, i1: 3, i2: 7, i3: 6, color: colFront, z: pz[2] + pz[3] + pz[7] + pz[6] },
+        { i0: 1, i1: 2, i2: 6, i3: 5, color: colSide, z: pz[1] + pz[2] + pz[6] + pz[5] },
+        { i0: 0, i1: 3, i2: 7, i3: 4, color: colSide, z: pz[0] + pz[3] + pz[7] + pz[4] }
       ];
-      faces.forEach(f => {
-        f.avgZ = f.indices.reduce((sum, idx) => sum + rotated[idx].z, 0) / 4;
-      });
-      faces.sort((a, b) => b.avgZ - a.avgZ);
-      
-      faces.forEach(f => {
+      faces.sort((a, b) => b.z - a.z);
+
+      for (let i = 0; i < 6; i++) {
+        const f = faces[i];
         ctx.fillStyle = f.color;
         ctx.beginPath();
-        ctx.moveTo(projected[f.indices[0]].x, projected[f.indices[0]].y);
-        for(let i = 1; i < 4; i++) {
-          ctx.lineTo(projected[f.indices[i]].x, projected[f.indices[i]].y);
-        }
+        ctx.moveTo(px[f.i0], py[f.i0]);
+        ctx.lineTo(px[f.i1], py[f.i1]);
+        ctx.lineTo(px[f.i2], py[f.i2]);
+        ctx.lineTo(px[f.i3], py[f.i3]);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-      });
+      }
     };
 
     // 0. NICE CUBE NEEDOH (Translucent Glassmorphic 3D Blue Cube)
@@ -1322,24 +1376,29 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
+      // Batched shaggy strands (1 stroke) and tips (1 fill)
       ctx.strokeStyle = strandColor;
       ctx.lineWidth = 1.8;
+      ctx.beginPath();
       for (let a = 0; a < Math.PI*2; a += 0.28) {
         const curAngle = a + rotationAngle;
-        const startX = Math.cos(curAngle) * 11;
-        const startY = Math.sin(curAngle) * 11;
+        const cosA = Math.cos(curAngle);
+        const sinA = Math.sin(curAngle);
+        ctx.moveTo(cosA * 11, sinA * 11);
+        ctx.lineTo(cosA * 15.5, sinA * 15.5);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = tipColor;
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI*2; a += 0.28) {
+        const curAngle = a + rotationAngle;
         const endX = Math.cos(curAngle) * 15.5;
         const endY = Math.sin(curAngle) * 15.5;
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
-
-        ctx.fillStyle = tipColor;
-        ctx.beginPath();
+        ctx.moveTo(endX + 1.1, endY);
         ctx.arc(endX, endY, 1.1, 0, Math.PI*2);
-        ctx.fill();
       }
+      ctx.fill();
 
       if (faceScaleX >= 0) {
         ctx.save();
@@ -1589,8 +1648,10 @@ export class CustomRenderer {
 
     if (typeId >= 9 && typeId <= 18) {
       if (typeId === 16 && skin === 'normal') {
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = '#d946ef';
+        ctx.fillStyle = 'rgba(217, 70, 239, 0.22)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 17, 0, Math.PI * 2);
+        ctx.fill();
       }
       
       let fillGrad = null;
@@ -1760,20 +1821,20 @@ export class CustomRenderer {
       ctx.fill();
       ctx.stroke();
 
+      // Batched micro-fuzzy strands (1 stroke instead of 79)
+      const fuzzPhase = this.frameNow * 0.008;
       ctx.strokeStyle = strandColor;
       ctx.lineWidth = 0.85;
+      ctx.beginPath();
       for (let a = 0; a < Math.PI*2; a += 0.08) {
-        const lengthMod = 2.5 + Math.sin(a * 14 + Date.now() * 0.008) * 0.9;
+        const lengthMod = 2.5 + Math.sin(a * 14 + fuzzPhase) * 0.9;
         const curAngle = a + rotationAngle;
-        const startX = Math.cos(curAngle) * 11.5;
-        const startY = Math.sin(curAngle) * 11.5;
-        const endX = Math.cos(curAngle) * (11.5 + lengthMod);
-        const endY = Math.sin(curAngle) * (11.5 + lengthMod);
-        ctx.beginPath();
-        ctx.moveTo(startX, startY);
-        ctx.lineTo(endX, endY);
-        ctx.stroke();
+        const cosA = Math.cos(curAngle);
+        const sinA = Math.sin(curAngle);
+        ctx.moveTo(cosA * 11.5, sinA * 11.5);
+        ctx.lineTo(cosA * (11.5 + lengthMod), sinA * (11.5 + lengthMod));
       }
+      ctx.stroke();
 
       if (faceScaleX >= 0) {
         ctx.save();
@@ -1805,8 +1866,7 @@ export class CustomRenderer {
     }
     // 21. COLOUR CHANGE NEEDOH (Green to Pink dynamic shift)
     else if (typeId === 21) {
-      const timeMs = Date.now();
-      const shift = (Math.sin(timeMs * 0.0035) + 1) / 2;
+      const shift = (Math.sin(this.frameNow * 0.0035) + 1) / 2;
 
       let color1, color2;
       if (skin === 'normal') {
@@ -1901,9 +1961,12 @@ export class CustomRenderer {
 
   // DETAILED GLOWING RADIAL AURAS IN COLLECTIBLES
   drawStars() {
-    this.ctx.save();
-    const viewL = this.camera.x - 120;
-    const viewR = this.camera.x + this.ctx.canvas.width + 120;
+    const ctx = this.ctx;
+    const now = this.frameNow;
+    const viewL = this.viewL;
+    const viewR = this.viewR;
+
+    ctx.save();
 
     this.environment.stars.forEach(squishy => {
       const { x, y } = squishy.position;
@@ -1913,127 +1976,109 @@ export class CustomRenderer {
       const typeId = squishy.toyType || 0;
       const skin = squishy.toySkin || 'normal';
       
-      const bob = Math.sin(Date.now() * 0.003 + x * 0.015) * 5;
+      const bob = Math.sin(now * 0.003 + x * 0.015) * 5;
       
       if (squishy.label === 'chalk-cup') {
-        this.ctx.save();
-        this.ctx.translate(x, y + bob);
+        ctx.save();
+        ctx.translate(x, y + bob);
         
-        const auraGrad = this.ctx.createRadialGradient(0, 0, 2, 0, 0, 24);
-        auraGrad.addColorStop(0, 'rgba(6, 182, 212, 0.45)');
-        auraGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
-        this.ctx.fillStyle = auraGrad;
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, 24, 0, Math.PI*2);
-        this.ctx.fill();
+        ctx.fillStyle = this.gradients.auraChalk;
+        ctx.beginPath();
+        ctx.arc(0, 0, 24, 0, Math.PI*2);
+        ctx.fill();
 
-        this.ctx.fillStyle = '#cbd5e1';
-        this.ctx.strokeStyle = '#475569';
-        this.ctx.lineWidth = 1.5;
-        this.ctx.beginPath();
-        this.ctx.moveTo(-10, -8);
-        this.ctx.lineTo(10, -8);
-        this.ctx.lineTo(7, 10);
-        this.ctx.lineTo(-7, 10);
-        this.ctx.closePath();
-        this.ctx.fill();
-        this.ctx.stroke();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-10, -8);
+        ctx.lineTo(10, -8);
+        ctx.lineTo(7, 10);
+        ctx.lineTo(-7, 10);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
 
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.beginPath();
-        this.ctx.arc(-4, -8, 6, 0, Math.PI*2);
-        this.ctx.arc(4, -8, 6, 0, Math.PI*2);
-        this.ctx.arc(0, -11, 7, 0, Math.PI*2);
-        this.ctx.closePath();
-        this.ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-4, -8, 6, 0, Math.PI*2);
+        ctx.arc(4, -8, 6, 0, Math.PI*2);
+        ctx.arc(0, -11, 7, 0, Math.PI*2);
+        ctx.closePath();
+        ctx.fill();
         
-        this.ctx.fillStyle = '#06b6d4';
-        this.ctx.font = 'bold 8px sans-serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText("C", 0, 4);
+        ctx.fillStyle = '#06b6d4';
+        ctx.font = 'bold 8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('C', 0, 4);
 
-        this.ctx.restore();
+        ctx.restore();
         return;
       }
       
-      this.ctx.save();
-      this.ctx.translate(x, y + bob);
+      ctx.save();
+      ctx.translate(x, y + bob);
       
-      // AURA RADIAL ENGINE (Render behind the toy)
+      // AURA RADIAL ENGINE (using cached gradients)
       if (skin !== 'normal') {
-        this.ctx.save();
-        const auraRadius = 26;
-        const auraGrad = this.ctx.createRadialGradient(0, 0, 4, 0, 0, auraRadius);
-        
-        if (skin === 'glitter') {
-          auraGrad.addColorStop(0, 'rgba(244, 63, 94, 0.45)'); // pink core
-          auraGrad.addColorStop(0.7, 'rgba(236, 72, 153, 0.15)');
-          auraGrad.addColorStop(1, 'rgba(236, 72, 153, 0)');
-        } else if (skin === 'metallic') {
-          auraGrad.addColorStop(0, 'rgba(241, 245, 249, 0.5)'); // silver core
-          auraGrad.addColorStop(0.7, 'rgba(148, 163, 184, 0.18)');
-          auraGrad.addColorStop(1, 'rgba(148, 163, 184, 0)');
+        ctx.save();
+        let auraGrad = this.gradients.auraGlitter;
+        if (skin === 'metallic') {
+          auraGrad = this.gradients.auraMetallic;
         } else if (skin === 'galaxy') {
-          auraGrad.addColorStop(0, 'rgba(168, 85, 247, 0.55)'); // purple core
-          auraGrad.addColorStop(0.6, 'rgba(99, 102, 241, 0.22)'); // indigo mid
-          auraGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
-          
-          // Draw spinning galaxy planetary ring
-          this.ctx.strokeStyle = 'rgba(192, 132, 252, 0.35)';
-          this.ctx.lineWidth = 1.5;
-          this.ctx.save();
-          this.ctx.rotate(Date.now() * 0.0015);
-          this.ctx.beginPath();
-          this.ctx.ellipse(0, 0, 22, 6, 0.2, 0, Math.PI*2);
-          this.ctx.stroke();
-          this.ctx.restore();
+          auraGrad = this.gradients.auraGalaxy;
+          ctx.strokeStyle = 'rgba(192, 132, 252, 0.35)';
+          ctx.lineWidth = 1.5;
+          ctx.save();
+          ctx.rotate(now * 0.0015);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 22, 6, 0.2, 0, Math.PI*2);
+          ctx.stroke();
+          ctx.restore();
         }
         
-        this.ctx.fillStyle = auraGrad;
-        this.ctx.beginPath();
-        this.ctx.arc(0, 0, auraRadius, 0, Math.PI*2);
-        this.ctx.fill();
-        this.ctx.restore();
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, 26, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
       }
 
       // Draw the 3D Shaded Toy
-      this.drawSquishyToy(this.ctx, typeId, 14, 0, skin);
+      this.drawSquishyToy(ctx, typeId, 14, 0, skin);
 
       // Render skin accents on top
       if (skin === 'glitter') {
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 1.0;
-        this.ctx.beginPath();
-        // Sparkle flares
-        this.ctx.moveTo(-8, -8); this.ctx.lineTo(-4, -8);
-        this.ctx.moveTo(-6, -10); this.ctx.lineTo(-6, -6);
-        this.ctx.moveTo(6, 6); this.ctx.lineTo(10, 6);
-        this.ctx.moveTo(8, 4); this.ctx.lineTo(8, 8);
-        this.ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(-8, -8); ctx.lineTo(-4, -8);
+        ctx.moveTo(-6, -10); ctx.lineTo(-6, -6);
+        ctx.moveTo(6, 6); ctx.lineTo(10, 6);
+        ctx.moveTo(8, 4); ctx.lineTo(8, 8);
+        ctx.stroke();
       } 
       else if (skin === 'metallic') {
-        // High specular chrome highlight line
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-        this.ctx.beginPath();
-        this.ctx.moveTo(-9, -9);
-        this.ctx.lineTo(-2, -9);
-        this.ctx.lineTo(-6, 9);
-        this.ctx.lineTo(-13, 9);
-        this.ctx.closePath();
-        this.ctx.fill();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.beginPath();
+        ctx.moveTo(-9, -9);
+        ctx.lineTo(-2, -9);
+        ctx.lineTo(-6, 9);
+        ctx.lineTo(-13, 9);
+        ctx.closePath();
+        ctx.fill();
       }
       else if (skin === 'galaxy') {
-        // Floating space stars
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.beginPath();
-        this.ctx.arc(-7, 7, 1.2, 0, Math.PI*2);
-        this.ctx.arc(7, -7, 1.2, 0, Math.PI*2);
-        this.ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-7, 7, 1.2, 0, Math.PI*2);
+        ctx.arc(7, -7, 1.2, 0, Math.PI*2);
+        ctx.fill();
       }
 
-      this.ctx.restore();
+      ctx.restore();
     });
-    this.ctx.restore();
+    ctx.restore();
   }
 
   drawSpillParticles() {
@@ -2109,7 +2154,8 @@ export class CustomRenderer {
       this.ctx.restore();
 
       if (p.life >= p.maxLife) {
-        this.spillParticles.splice(i, 1);
+        this.spillParticles[i] = this.spillParticles[this.spillParticles.length - 1];
+        this.spillParticles.pop();
       }
     }
 
@@ -2209,35 +2255,6 @@ export class CustomRenderer {
     const slipperColor = isTrailSilhouette ? 'rgba(168, 85, 247, 0.25)' : '#ffffff';
 
     const swingFactor = Math.sin(this.gymnast.runFrame);
-
-    // Tapered capsule helper
-    const drawTaperedCapsule = (x, y, wTop, wBot, h, angle, color) => {
-      this.ctx.save();
-      this.ctx.translate(x, y);
-      this.ctx.rotate(angle);
-      
-      this.ctx.fillStyle = color;
-      this.ctx.beginPath();
-      
-      const rTop = wTop / 2;
-      const rBot = wBot / 2;
-      const hHalf = h / 2;
-      
-      this.ctx.arc(0, -hHalf + rTop, rTop, Math.PI, 0);
-      this.ctx.lineTo(rBot, hHalf - rBot);
-      this.ctx.arc(0, hHalf - rBot, rBot, 0, Math.PI);
-      this.ctx.lineTo(-rTop, -hHalf + rTop);
-      
-      this.ctx.closePath();
-      this.ctx.fill();
-
-      if (!isTrailSilhouette) {
-        this.ctx.strokeStyle = 'rgba(15, 23, 42, 0.12)';
-        this.ctx.lineWidth = 1.2;
-        this.ctx.stroke();
-      }
-      this.ctx.restore();
-    };
 
     // Foot slippers (realistic human shape)
     const drawSlipper = (x, y, angle, color) => {
@@ -2846,7 +2863,8 @@ export class CustomRenderer {
       }
 
       if (p.life >= p.maxLife) {
-        this.particles.splice(i, 1);
+        this.particles[i] = this.particles[this.particles.length - 1];
+        this.particles.pop();
       }
     }
 
@@ -2856,7 +2874,12 @@ export class CustomRenderer {
   }
 
   drawPopups() {
-    this.ctx.save();
+    if (this.popups.length === 0) return;
+
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = 'bold 22px "Outfit", sans-serif';
+    ctx.textAlign = 'center';
     
     for (let i = this.popups.length - 1; i >= 0; i--) {
       const p = this.popups[i];
@@ -2864,21 +2887,19 @@ export class CustomRenderer {
       p.life++;
       p.alpha = 1 - (p.life / p.maxLife);
 
-      this.ctx.globalAlpha = p.alpha;
-      this.ctx.fillStyle = p.color;
-      this.ctx.font = 'bold 22px "Outfit", sans-serif';
-      this.ctx.textAlign = 'center';
-      
-      this.ctx.shadowBlur = 4;
-      this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-      
-      this.ctx.fillText(p.text, p.x, p.y);
+      ctx.globalAlpha = p.alpha;
+      // Fast offset drop-shadow instead of slow shadowBlur
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.fillText(p.text, p.x + 1.5, p.y + 1.5);
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, p.x, p.y);
 
       if (p.life >= p.maxLife) {
-        this.popups.splice(i, 1);
+        this.popups[i] = this.popups[this.popups.length - 1];
+        this.popups.pop();
       }
     }
 
-    this.ctx.restore();
+    ctx.restore();
   }
 }
