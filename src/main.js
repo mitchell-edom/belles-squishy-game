@@ -122,11 +122,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (soundEnabled) {
         soundToggleBtn.classList.remove('sound-muted');
-        soundToggleBtn.textContent = '🔊 Sound';
+        soundToggleBtn.innerHTML = '<span class="sound-icon" aria-hidden="true">🔊</span><span class="btn-label"> Sound</span>';
         soundToggleBtn.setAttribute('aria-pressed', 'true');
       } else {
         soundToggleBtn.classList.add('sound-muted');
-        soundToggleBtn.textContent = '🔇 Muted';
+        soundToggleBtn.innerHTML = '<span class="sound-icon" aria-hidden="true">🔇</span><span class="btn-label"> Muted</span>';
         soundToggleBtn.setAttribute('aria-pressed', 'false');
       }
       canvas?.focus();

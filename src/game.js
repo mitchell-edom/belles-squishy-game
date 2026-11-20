@@ -78,7 +78,10 @@ export class GymnasticsGame {
     
     // Start loop
     this.resizeCanvas();
-    window.addEventListener('resize', () => this.resizeCanvas());
+    const handleResize = () => this.resizeCanvas();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    window.visualViewport?.addEventListener('resize', handleResize);
     
     this.lastTime = performance.now();
     this.startLoop();
@@ -153,38 +156,41 @@ export class GymnasticsGame {
   }
 
   setupTouchControls() {
+    const setActionState = (action, pressed) => {
+      if (action === 'left') {
+        this.activeKeys['a'] = pressed;
+      } else if (action === 'right') {
+        this.activeKeys['d'] = pressed;
+      } else if (action !== 'jump') {
+        this.activeKeys[action] = pressed;
+      }
+    };
+
     const bindBtn = (id, action) => {
       const btn = document.getElementById(id);
       if (!btn) return;
       
       const handlerStart = (e) => {
         e.preventDefault();
+        btn.classList.add('is-pressed');
         if (this.gameWon || this.wipeoutTimer > 0) return;
         
         if (action === 'jump') {
           this.triggerJump();
-        } else if (action === 'left') {
-          this.activeKeys['a'] = true;
-        } else if (action === 'right') {
-          this.activeKeys['d'] = true;
         } else {
-          this.activeKeys[action] = true;
+          setActionState(action, true);
         }
       };
 
       const handlerEnd = (e) => {
-        e.preventDefault();
-        if (action === 'left') {
-          this.activeKeys['a'] = false;
-        } else if (action === 'right') {
-          this.activeKeys['d'] = false;
-        } else if (action !== 'jump') {
-          this.activeKeys[action] = false;
-        }
+        if (e.cancelable) e.preventDefault();
+        btn.classList.remove('is-pressed');
+        setActionState(action, false);
       };
 
       btn.addEventListener('touchstart', handlerStart, { passive: false });
       btn.addEventListener('touchend', handlerEnd, { passive: false });
+      btn.addEventListener('touchcancel', handlerEnd, { passive: false });
       btn.addEventListener('mousedown', handlerStart);
       btn.addEventListener('mouseup', handlerEnd);
       btn.addEventListener('mouseleave', handlerEnd);
@@ -204,6 +210,20 @@ export class GymnasticsGame {
     bindBtn('btn-side-aerial', 'u');
     bindBtn('btn-front-handspring', 'f');
     bindBtn('btn-back-handspring', 'h');
+
+    // Toggle expandable extra tricks tray on mobile
+    const moreBtn = document.getElementById('btn-more-tricks');
+    const extraTray = document.getElementById('touch-extra-poses');
+    if (moreBtn && extraTray) {
+      const toggleTray = (e) => {
+        e.preventDefault();
+        const isOpen = extraTray.classList.toggle('open');
+        moreBtn.setAttribute('aria-expanded', String(isOpen));
+        extraTray.setAttribute('aria-hidden', String(!isOpen));
+        moreBtn.textContent = isOpen ? '× Tricks' : '+ Tricks';
+      };
+      moreBtn.addEventListener('click', toggleTray);
+    }
   }
 
   triggerJump() {
@@ -1080,19 +1100,30 @@ export class GymnasticsGame {
     const modal = document.getElementById('squishy-viewer-modal');
     if (modal) modal.classList.add('visible');
 
-    // Cache canvas & context once and attach mouse handlers for interactive tilt
+    // Cache canvas & context once and attach mouse + touch handlers for interactive tilt
     const canvas = document.getElementById('viewer-canvas');
     if (canvas) {
       this.viewerCanvas = canvas;
       this.viewerCtx = canvas.getContext('2d');
-      canvas.onmousemove = (e) => {
+      const updateTiltFromClient = (clientX, clientY) => {
         const rect = canvas.getBoundingClientRect();
-        const mx = (e.clientX - rect.left) / rect.width - 0.5;
-        const my = (e.clientY - rect.top) / rect.height - 0.5;
+        const mx = (clientX - rect.left) / rect.width - 0.5;
+        const my = (clientY - rect.top) / rect.height - 0.5;
         this.viewerTiltX = mx * 1.5;
         this.viewerTiltY = my * 1.5;
       };
+      canvas.onmousemove = (e) => updateTiltFromClient(e.clientX, e.clientY);
       canvas.onmouseleave = () => {
+        this.viewerTiltX = 0;
+        this.viewerTiltY = 0;
+      };
+      canvas.ontouchmove = (e) => {
+        if (e.touches.length > 0) {
+          e.preventDefault();
+          updateTiltFromClient(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      };
+      canvas.ontouchend = () => {
         this.viewerTiltX = 0;
         this.viewerTiltY = 0;
       };

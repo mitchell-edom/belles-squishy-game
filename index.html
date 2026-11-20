@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#020617">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="description" content="Belle's Gymnastics & Contortionist Arena — Flip, swing, vault, and collect 22 3D squishy toys in an endless arcade gymnastics platformer.">
   <meta property="og:title" content="Belle's Gymnastics & Contortionist Arena">
   <meta property="og:description" content="Flip, swing, vault, and collect 22 3D squishy toys in an endless arcade gymnastics platformer.">
@@ -66,11 +69,11 @@
 
     <!-- UI Overlay Toggle Buttons -->
     <div class="ui-triggers">
-      <button id="btn-toggle-customizer" class="trigger-btn">👗 Customize</button>
-      <button id="btn-toggle-collection" class="trigger-btn">🧸 Collection</button>
-      <button id="btn-toggle-help" class="trigger-btn">🎮 How to Play</button>
-      <button id="sound-toggle" class="trigger-btn sound-btn">🔊 Sound</button>
-      <button id="btn-reset-top" class="trigger-btn reset-btn">🔄 Restart</button>
+      <button id="btn-toggle-customizer" class="trigger-btn" aria-label="Customize gymnast"><span aria-hidden="true">👗</span><span class="btn-label"> Customize</span></button>
+      <button id="btn-toggle-collection" class="trigger-btn" aria-label="Toy collection"><span aria-hidden="true">🧸</span><span class="btn-label"> Collection</span></button>
+      <button id="btn-toggle-help" class="trigger-btn" aria-label="How to play"><span aria-hidden="true">🎮</span><span class="btn-label"> How to Play</span></button>
+      <button id="sound-toggle" class="trigger-btn sound-btn" aria-label="Toggle sound" aria-pressed="true"><span class="sound-icon" aria-hidden="true">🔊</span><span class="btn-label"> Sound</span></button>
+      <button id="btn-reset-top" class="trigger-btn reset-btn" aria-label="Restart level"><span aria-hidden="true">🔄</span><span class="btn-label"> Restart</span></button>
     </div>
 
     <!-- Floating Customizer Modal -->
@@ -571,27 +574,36 @@
     </div>
 
     <!-- On-Screen Controls for Mobile/Touch -->
-    <div class="touch-controls">
-      <!-- Left side: Running -->
+    <div class="touch-controls" aria-label="Game touch controls">
+      <!-- Left side: Movement D-Pad -->
       <div class="touch-left">
-        <button id="btn-spin-left" class="btn-touch btn-spin">◀️ Run L</button>
-        <button id="btn-spin-right" class="btn-touch btn-spin">▶️ Run R</button>
+        <button id="btn-spin-left" class="btn-touch btn-spin" aria-label="Run left">◀</button>
+        <button id="btn-spin-right" class="btn-touch btn-spin" aria-label="Run right">▶</button>
       </div>
-      <!-- Right side: Poses & Jumps -->
+
+      <!-- Right side: Minimal Core Tricks + Jump + Expandable Extra Tricks -->
       <div class="touch-right">
-        <div class="touch-poses">
-          <button id="btn-backflip" class="btn-touch btn-pose">Backflip (Q)</button>
-          <button id="btn-frontflip" class="btn-touch btn-pose">Front/Roll (W)</button>
-          <button id="btn-tuck" class="btn-touch btn-pose">Tuck (R)</button>
-          <button id="btn-front-aerial" class="btn-touch btn-pose">F-Aerial (Y)</button>
-          <button id="btn-front-handspring" class="btn-touch btn-pose">F-Spring (F)</button>
-          <button id="btn-split" class="btn-touch btn-pose">Split/Cart (E)</button>
-          <button id="btn-layout" class="btn-touch btn-pose">Layout/Stand (T)</button>
-          <button id="btn-reach" class="btn-touch btn-pose">Reach/Grab (O)</button>
-          <button id="btn-side-aerial" class="btn-touch btn-pose">S-Aerial (U)</button>
-          <button id="btn-back-handspring" class="btn-touch btn-pose">B-Spring (H)</button>
+        <div id="touch-extra-poses" class="touch-extra-poses" aria-hidden="true">
+          <button id="btn-tuck" class="btn-touch btn-pose btn-pose-sm">Tuck</button>
+          <button id="btn-layout" class="btn-touch btn-pose btn-pose-sm">Layout</button>
+          <button id="btn-front-aerial" class="btn-touch btn-pose btn-pose-sm">F-Aerial</button>
+          <button id="btn-side-aerial" class="btn-touch btn-pose btn-pose-sm">S-Aerial</button>
+          <button id="btn-front-handspring" class="btn-touch btn-pose btn-pose-sm">F-Spring</button>
+          <button id="btn-back-handspring" class="btn-touch btn-pose btn-pose-sm">B-Spring</button>
         </div>
-        <button id="btn-jump" class="btn-touch btn-jump">🚀 JUMP (Space)</button>
+
+        <div class="touch-action-cluster">
+          <div class="touch-core-poses">
+            <button id="btn-backflip" class="btn-touch btn-pose" aria-label="Backflip">↺ Flip</button>
+            <button id="btn-frontflip" class="btn-touch btn-pose" aria-label="Frontflip or Roll">↻ Roll</button>
+            <button id="btn-split" class="btn-touch btn-pose" aria-label="Split or Cartwheel">✦ Split</button>
+            <button id="btn-reach" class="btn-touch btn-pose" aria-label="Grab bar or rings">✋ Grab</button>
+          </div>
+          <div class="touch-jump-col">
+            <button id="btn-more-tricks" class="btn-touch btn-more" aria-label="More tricks" aria-expanded="false">+ Tricks</button>
+            <button id="btn-jump" class="btn-touch btn-jump" aria-label="Jump">JUMP</button>
+          </div>
+        </div>
       </div>
     </div>
 

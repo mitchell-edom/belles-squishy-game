@@ -238,21 +238,36 @@ export class CustomRenderer {
     const target = this.gymnast.body.position;
     const velocity = this.gymnast.body.velocity;
 
-    let targetX = target.x - width * 0.35;
-    let targetY = target.y - height * 0.6;
-
-    targetX = Math.max(0, targetX);
-    targetY = Math.max(0, Math.min(this.environment.height - height, targetY));
-
-    this.camera.x += (targetX - this.camera.x) * 0.08;
-    this.camera.y += (targetY - this.camera.y) * 0.08;
+    // Responsive base zoom so narrow portrait & short landscape mobile screens see upcoming obstacles
+    const isMobileViewport = width <= 900 || height <= 520;
+    const widthFit = width / 920;
+    const heightFit = height / 620;
+    const viewportScale = isMobileViewport
+      ? Math.max(0.5, Math.min(0.95, Math.min(widthFit, heightFit)))
+      : 1.0;
 
     const speed = Math.abs(velocity.x);
-    let scale = 1.0 - (speed * 0.007);
-    scale = Math.max(0.78, Math.min(1.05, scale));
+    let scale = viewportScale * (1.0 - (speed * 0.007));
+    scale = Math.max(0.45, Math.min(1.05, scale));
 
     this.camera.targetZoom = scale;
-    this.camera.zoom += (this.camera.targetZoom - this.camera.zoom) * 0.05;
+    this.camera.zoom += (this.camera.targetZoom - this.camera.zoom) * 0.06;
+
+    // Frame Belle slightly further left & higher on mobile so upcoming platforms and floor sit above touch controls
+    const leadRatio = isMobileViewport ? 0.28 : 0.35;
+    const verticalRatio = isMobileViewport ? 0.46 : 0.6;
+
+    let targetX = target.x - width * leadRatio;
+    let targetY = target.y - height * verticalRatio;
+
+    const extraBottomPad = isMobileViewport ? 160 : 0;
+    const maxCamY = Math.max(0, this.environment.height - height + extraBottomPad);
+
+    targetX = Math.max(0, targetX);
+    targetY = Math.max(-120, Math.min(maxCamY, targetY));
+
+    this.camera.x += (targetX - this.camera.x) * 0.1;
+    this.camera.y += (targetY - this.camera.y) * 0.1;
   }
 
   render(width, height) {
@@ -307,8 +322,9 @@ export class CustomRenderer {
     ctx.save();
     
     // Fill the arena background wall (Deep Indigo Cosmic Violet)
+    const wallHeight = Math.max(height, 1200);
     ctx.fillStyle = '#0a0612';
-    ctx.fillRect(camL, 0, bgW, height);
+    ctx.fillRect(camL, -200, bgW, wallHeight + 200);
 
     const startX = Math.floor(camL / 600) * 600;
     const endX = camR + 600;
